@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual
+.venv/
+venv/
+env/
+
+# Mac
+.DS_Store
+
+# IDE
+.vscode/
+
+# Training
+dataset/*
+!dataset/.gitkeep
+models/*
+!models/.gitkeep
+runs/
+logs/
