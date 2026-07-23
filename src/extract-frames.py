@@ -59,6 +59,7 @@ def extract_frames(video_path: Path, output_dir: Path, interval: float):
         curr_frame += 1
     vid.release()
     print(f"[DONE] {video_path.name}: {curr_saved} frames")
+    return
 
 
 def main():
@@ -103,7 +104,7 @@ def main():
     for video in videos:
         output_dir = frames_root / video.stem
 
-        # Make separate directory for each processed video
+        # Delete anything that is already in the directory
         # If overwrite == False, skip existing directory instead
         if output_dir.exists():
             if not args.overwrite:
@@ -116,7 +117,7 @@ def main():
 
         extract_frames(video, output_dir, args.interval)
     print("\nFinished")
-
+    return
 
 if __name__ == "__main__":
     main()

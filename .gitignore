@@ -13,10 +13,15 @@ env/
 # IDE
 .vscode/
 
-# Training
-dataset/*
-!dataset/.gitkeep
-models/*
-!models/.gitkeep
+# Dataset
+dataset/images/
+dataset/labels/
+dataset/frames/
+dataset/crops/
+
+# YOLO
+models/*.pt
 runs/
+
+# Additional
 logs/

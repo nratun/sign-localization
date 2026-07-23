@@ -1,1 +1,1 @@
-Using a YOLO model to identify building signs and OCR to extract  text from the signs
+Using a YOLO model to identify building signs and OCR to extract text from the signs
