@@ -151,12 +151,13 @@ def main():
     parser.add_argument(
         "--confidence",
         type=float,
-        default=0.5,
+        default=0.9,
         help="Detection confidence threshold"
     )
     parser.add_argument(
         "--overwrite",
         action="store_true",
+        default=True,
         help="Overwrite existing crops folder"
     )
     args = parser.parse_args()
