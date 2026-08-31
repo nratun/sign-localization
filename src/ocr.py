@@ -17,8 +17,8 @@ def preprocess_ocr(image):
 
     return thresh
 
-def ocr_text(ocr, image) -> tuple[str, float]:  
-    # Preprocess image
+def ocr_text(ocr, image) -> tuple[str, float]:
+    # Preprocess image (not using for now)
     # processed = preprocess_ocr(image)
 
     # Run OCR
@@ -49,7 +49,8 @@ def ocr_text(ocr, image) -> tuple[str, float]:
 def main():
     ocr = PaddleOCR(
         lang="en",
-        device="gpu:0" # If using multi-gpu system
+        device="cpu", # If using multi-gpu system gpu:0
+        enable_mkldnn=False
     )
 
     # Test image

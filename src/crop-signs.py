@@ -4,6 +4,9 @@ import argparse
 import numpy as np
 import cv2
 
+from ocr import ocr_text
+from paddleocr import PaddleOCR
+
 '''
 Takes in 4 (x,y) points representing a bounding box and places them in order.
 The order of the points is determined by their values when added/subtracted.
@@ -79,6 +82,62 @@ def perspective_crop(image: np.ndarray, points: np.ndarray) -> np.ndarray | None
     return warped
 
 '''
+TODO put docstrings im tooooo lazyy right now, puts OCR text with white background next to cropped photo
+'''
+def create_ocr_output(crop: np.ndarray, text: str, conf: float) -> np.ndarray:
+    panel_width = max(400, crop.shape[1])
+    output_height = max(crop.shape[0], 200)
+
+    # White background
+    output = np.ones(
+        (output_height, crop.shape[1] + panel_width, 3),
+        dtype=np.uint8
+    ) * 255
+
+    # Place cropped sign on left
+    output[0:crop.shape[0], 0:crop.shape[1]] = crop
+
+    # Starting position for text
+    text_x = crop.shape[1] + 20
+
+    cv2.putText(
+        output,
+        "OCR:",
+        (text_x, 50),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        1.0,
+        (0, 0, 0),
+        2,
+        cv2.LINE_AA
+    )
+
+    # OCR text
+    cv2.putText(
+        output,
+        text if text else "[NO TEXT]",
+        (text_x, 90),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.8,
+        (0, 0, 0),
+        2,
+        cv2.LINE_AA
+    )
+
+    # Confidence
+    cv2.putText(
+        output,
+        f"Confidence: {conf:.3f}",
+        (text_x, 140),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.8,
+        (0, 0, 0),
+        2,
+        cv2.LINE_AA
+    )
+
+    return output
+
+'''
 Takes in a photo & runs a model to detect regions of interest (building signs).
 The photo is then cropped and transformed to provide a straight rectangular view of the ROI.
 If the model is not confident enough in its inference, the photo is ignored
@@ -92,7 +151,8 @@ Params:
 Returns:
     None
 '''
-def crop_signs(model: YOLO, img_path: Path, output_dir: Path, confidence: float):
+def crop_signs(model: YOLO, ocr: PaddleOCR, img_path: Path, output_dir: Path, confidence: float):
+    # Added in ocr
     img = cv2.imread(str(img_path))
 
     # Can't open photo
@@ -100,10 +160,7 @@ def crop_signs(model: YOLO, img_path: Path, output_dir: Path, confidence: float)
         print(f"[ERROR] {img_path.name} not found or unable to read")
         return
 
-    results = model(
-        img,
-        conf=confidence
-    )
+    results = model(img, conf=confidence)
 
     num_signs = 0
 
@@ -122,9 +179,18 @@ def crop_signs(model: YOLO, img_path: Path, output_dir: Path, confidence: float)
             if crop is None:
                 continue
 
+            # ---------------------OCR Section----------------------------
+            # Run OCR on cropped sign
+            text, ocr_confidence = ocr_text(ocr, crop)
+
+            # Combine cropped photo with extracted text & confidence
+            output = create_ocr_output(crop, text, ocr_confidence)
+            # ---------------------(END) OCR Section----------------------
+
             output_name = (f"{img_path.stem}_sign_{num_signs}.jpg")
             output_path = output_dir / output_name
-            cv2.imwrite(str(output_path), crop)
+            cv2.imwrite(str(output_path), output)
+            # cv2.imwrite(str(output_path), crop)
 
             num_signs += 1
     print(
@@ -185,10 +251,18 @@ def main():
 
     model = YOLO(args.model)
 
+    #---------------------OCR Section----------------------------
+    ocr = PaddleOCR(
+        lang="en",
+        device="cpu",
+        enable_mkldnn=False # If this isn't used, DNN runtime error occurs
+    )
+
     # Go through each photo and crop the signs
     for photo in photos:
-        crop_signs(model, photo, photos_root, args.confidence)
-
+        # crop_signs(model, photo, photos_root, args.confidence) # Og
+        crop_signs(model, ocr, photo, photos_root, args.confidence)
+    #---------------------(END) OCR Section----------------------
     print("\nFinished")
     return
 
