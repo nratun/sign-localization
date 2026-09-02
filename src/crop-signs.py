@@ -240,7 +240,7 @@ def main():
         for file in photos_root.glob("*"):
             file.unlink()
 
-    photos = sorted(photos_dir.glob("*.jpeg"))
+    photos = sorted(photos_dir.glob("*.jpg"))
 
     # Can't find any photos in directory
     if not photos:

@@ -104,7 +104,7 @@ def fix_text(text):
     if not text: return ""
     text = text.upper()
     text = re.sub(r"[^A-Z0-9]", "", text) # Remove spaces & unnecessary stuff
-    match = re.search(r"\d{3}[A-Z]?", text) # Find 3 digits & letter
+    match = re.search(r"\d{3}[A-D]?", text) # Find 3 digits & optional letter A-D
     if not match: return ""
     return match.group()
 
@@ -132,27 +132,25 @@ def match_room(text, room_lookup):
     if not normalized: return None
     return room_lookup.get(normalized)
 
+def update_vehicle(curr_vtx, text, room_lookup):
+    match = match_room(text, room_lookup)
+    if match: return match["vertex_id"]
+    return curr_vtx
+
 def main():
     floor_data = load_yaml()
     vertices, edges = build_graph(floor_data)
     landmarks = get_landmarks(vertices)
     room_lookup = map_rooms(landmarks)
 
+    curr_vtx = None
     # Test OCR outputs
     test_texts = ["316a", "316 B", "316C.", "317D", "999", "", "CAR LAB 316 X-RAY", "ROOM 316B"]
 
     for text in test_texts:
-        match = match_room(text, room_lookup)
+        curr_vtx = update_vehicle(curr_vtx, text, room_lookup)
 
-        if match:
-            print (
-                f"OCR: '{text}' -> "
-                f"Room: {match['label']} "
-                f"(vertex {match['vertex_id']}, "
-                f"x={match['x']:.1f}, y={match['y']:.1f})"
-            )
-        else:
-            print(f"OCR: '{text}' -> No match")
+        print(f"OCR: '{text}' -> vehicle at vertex {curr_vtx}")
 
 if __name__ == "__main__":
     main()

@@ -2,7 +2,7 @@ import cv2
 from paddleocr import PaddleOCR
 
 # Issues arise when using PaddleOCR in the same environment as YOLO
-# Use different environments for the two
+# Use different environments for the two or use cpu rather than gpu
 
 def preprocess_ocr(image):
     # Convert to grayscale
