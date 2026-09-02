@@ -1,4 +1,6 @@
 from pathlib import Path
+from ultralytics import YOLO
+from live_crop_signs import detect_signs
 import argparse
 import cv2
 
@@ -13,7 +15,7 @@ Params:
 Returns:
     None
 '''
-def input_video(video: Path):
+def stream_video(video: Path):
     vid = cv2.VideoCapture(str(video))
 
     # Can't open video
@@ -29,7 +31,7 @@ def input_video(video: Path):
         vid.release()
         return
 
-    delay = int(1000 / fps) # In ms
+    delay = int(1000 / fps) # In ms, may not keep up with video feed if processing takes too long
 
     while True:
         success, frame = vid.read()
@@ -38,11 +40,15 @@ def input_video(video: Path):
         if not success:
             break
 
+        model = YOLO("runs/train/r/weights/best.pt")
+        confidence = 0.95
         # Pass frame into crop
+        signs = detect_signs(model, frame, confidence)
+        # track signs to see iuf they're the same or different
         # Show changed floor plan here?
 
-        frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5) # Video feed was too large for screen, reduce 50%
-        cv2.imshow("Video Feed", frame)
+        display = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5) # Video feed was too large for screen, reduce 50%
+        cv2.imshow("Video Feed", display)
 
         if cv2.waitKey(delay) & 0xFF == ord("q"):
             break
@@ -67,7 +73,7 @@ def main():
     if not video.exists():
         raise FileNotFoundError(video)
 
-    input_video(video)
+    stream_video(video)
     print("\nFinished")
     return
 

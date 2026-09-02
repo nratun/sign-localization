@@ -151,7 +151,7 @@ Params:
 Returns:
     None
 '''
-def crop_signs(model: YOLO, ocr: PaddleOCR, img_path: Path, output_dir: Path, confidence: float):
+def detect_signs(model: YOLO, ocr: PaddleOCR, img_path: Path, output_dir: Path, confidence: float):
     # Added in ocr
     img = cv2.imread(str(img_path))
 
@@ -223,7 +223,6 @@ def main():
     parser.add_argument(
         "--overwrite",
         action="store_true",
-        default=True,
         help="Overwrite existing crops folder"
     )
     args = parser.parse_args()
@@ -260,8 +259,8 @@ def main():
 
     # Go through each photo and crop the signs
     for photo in photos:
-        # crop_signs(model, photo, photos_root, args.confidence) # Og
-        crop_signs(model, ocr, photo, photos_root, args.confidence)
+        # detect_signs(model, photo, photos_root, args.confidence) # Og
+        detect_signs(model, ocr, photo, photos_root, args.confidence)
     #---------------------(END) OCR Section----------------------
     print("\nFinished")
     return
