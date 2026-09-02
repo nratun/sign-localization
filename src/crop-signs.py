@@ -217,7 +217,7 @@ def main():
     parser.add_argument(
         "--confidence",
         type=float,
-        default=0.9,
+        default=0.95,
         help="Detection confidence threshold"
     )
     parser.add_argument(

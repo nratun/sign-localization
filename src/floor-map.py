@@ -1,15 +1,14 @@
 import yaml
-import cv2
+import re
 from pathlib import Path
 
 # Focus only on floor 3 right now, since that's where I have the most video content
 FLOORS_DIR = Path("dataset/floors")
 YAML_NAME = "floor-plan.yaml"
 FLOOR_NAME = "floor3"
-IMAGE_NAME = "FinTech_floor_3-1.png"
 
 # Vertices that I care about for the sake of testing
-USEFUL_LABELS = {
+LANDMARKS = {
     "303",
     "305",
     "306",
@@ -30,7 +29,7 @@ USEFUL_LABELS = {
     "327",
     "328",
     "331",
-    "335_kitchen",
+    "335",
     "336",
 }
 
@@ -48,18 +47,9 @@ def build_graph(yaml):
     # Keep unlabeled vertices as well
     '''
     Returns:
-
-        vertices:
-            vertex_id -> {
-                "x": x,
-                "y": y,
-                "label": label
-            }
-
-        edges:
-            [(start_id, end_id), ...]
+        vertices: vertex_id -> { "x": x, "y": y, "label": label}
+        edges: [(start_id, end_id), ...]
     '''
-
     vertices = {}
 
     for vertex_id, vertex in enumerate(yaml["vertices"]):
@@ -84,113 +74,85 @@ def build_graph(yaml):
 
     return vertices, edges
 
-def filter_useful_vertices(vertices):
+# Used to be filter_useful_vertices but the name was ugly
+def get_landmarks(vertices):
     # Extract only useful vertices, but keep og vertex id
-    useful_vertices = {}
+    landmarks = {}
 
     for vertex_id, vertex in vertices.items():
         label = vertex["label"]
-        if label in USEFUL_LABELS:
-            useful_vertices[vertex_id] = vertex
 
-    return useful_vertices
+        if label in LANDMARKS:
+            landmarks[label] = {
+                "vertex_id": vertex_id,
+                "x": vertex["x"],
+                "y": vertex["y"]
+            }
 
-def draw_graph(
-    image,
-    vertices,
-    edges,
-    useful_vertices
-):
-    # Draw navigation graph with useful vertices
-    # All edges are visible, but nly useful vertices are labeled
+    return landmarks
 
-    output = image.copy()
+'''
+Normalize OCR text so it can be compared with room labels.
+Examples:
+    "316a" -> "316A"
+    "316 A" -> "316A"
+    "316A." -> "316A"
+    " 316A " -> "316A"
+'''
+def fix_text(text):
+    # This would not work in the event that the ocr can't detect 3 numbers or mistakes a number for a letter
+    if not text: return ""
+    text = text.upper()
+    text = re.sub(r"[^A-Z0-9]", "", text) # Remove spaces & unnecessary stuff
+    match = re.search(r"\d{3}[A-Z]?", text) # Find 3 digits & letter
+    if not match: return ""
+    return match.group()
 
-    for start_id, end_id in edges:
-        start = vertices[start_id]
-        end = vertices[end_id]
+'''Create a dictionary mapping room labels to their vertices'''
+def map_rooms(landmarks):
+    rooms = {}
 
-        p1 = (int(start["x"]), int(start["y"]))
+    for label, landmark in landmarks.items():
+        normalized = fix_text(label)
 
-        p2 = (int(end["x"]), int(end["y"]))
+        rooms[normalized] = { 
+            "vertex_id": landmark["vertex_id"],
+            "x": landmark["x"],
+            "y": landmark["y"],
+            "label": label
+        }
+    return rooms
 
-        cv2.line(
-            output,
-            p1,
-            p2,
-            (0, 255, 0),
-            2
-        )
-
-    # Draw useful vertices only
-    for vertex_id, vertex in useful_vertices.items():
-        x = int(vertex["x"])
-        y = int(vertex["y"])
-
-        # Landmark point
-        cv2.circle(
-            output,
-            (x, y),
-            7,
-            (0, 0, 255),
-            -1
-        )
-
-        # Landmark label
-        label = vertex["label"]
-
-        cv2.putText(
-            output,
-            label,
-            (x + 10, y - 10),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.6,
-            (255, 0, 0),
-            2,
-            cv2.LINE_AA
-        )
-
-    return output
+'''
+Match OCR text against known room labels.
+Returns: Matched room dictionary, or None if no match exists
+'''
+def match_room(text, room_lookup):
+    normalized = fix_text(text)
+    if not normalized: return None
+    return room_lookup.get(normalized)
 
 def main():
     floor_data = load_yaml()
     vertices, edges = build_graph(floor_data)
-    useful_vertices = filter_useful_vertices(vertices)
+    landmarks = get_landmarks(vertices)
+    room_lookup = map_rooms(landmarks)
 
-    # Load floor plan img
-    img_path = FLOORS_DIR / IMAGE_NAME
-    img = cv2.imread(str(img_path))
+    # Test OCR outputs
+    test_texts = ["316a", "316 B", "316C.", "317D", "999", "", "CAR LAB 316 X-RAY", "ROOM 316B"]
 
-    if img is None:
-        raise FileNotFoundError(
-            f"Could not load floor plan image: {img_path}"
-        )
+    for text in test_texts:
+        match = match_room(text, room_lookup)
 
-    output = draw_graph(
-        img,
-        vertices,
-        edges,
-        useful_vertices
-    )
-
-    # Resize
-    scale = 0.75
-    output = cv2.resize(
-        output,
-        None,
-        fx=scale,
-        fy=scale,
-        interpolation=cv2.INTER_AREA
-    )
-
-    cv2.imshow(
-        "Floor 3 Graph",
-        output
-    )
-
-    print("\nPress any key to close")
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+        if match:
+            print (
+                f"OCR: '{text}' -> "
+                f"Room: {match['label']} "
+                f"(vertex {match['vertex_id']}, "
+                f"x={match['x']:.1f}, y={match['y']:.1f})"
+            )
+        else:
+            print(f"OCR: '{text}' -> No match")
 
 if __name__ == "__main__":
     main()
