@@ -1,11 +1,24 @@
-from ultralytics import YOLO
-from pathlib import Path
+#!/usr/bin/env python
+
+"""
+crop_signs.py: Crops photos to contain only building signs detected by a YOLO model with OCR output
+
+For this project, this file was used alongisde OCR text extraction for testing/debugging purposes.
+
+Usage:
+    python crop_signs.py <image_directory> [--model <model_path>] [--confidence <threshold>] [--overwrite]
+Example:
+    python crop_signs.py dataset/frames/ --confidence 0.9
+"""
 import argparse
-import numpy as np
+from pathlib import Path
+
 import cv2
+import numpy as np
+from ultralytics import YOLO
+from paddleocr import PaddleOCR
 
 from ocr import ocr_text
-from paddleocr import PaddleOCR
 
 '''
 Takes in 4 (x,y) points representing a bounding box and places them in order.
@@ -35,10 +48,9 @@ def order_points(points: np.ndarray) -> np.ndarray:
     return rect
 
 '''
-Warps the perspective of an image while cropping it to fit only the desired object
 Takes in an image and 4 (x,y) points representing a rectangular bounding box.
-The output image provides a straight, cropped rectangular image of a building sign.
-The output image is intended to be passed through an OCR to extract text off the sign.
+The output image provides a cropped rectangular image of a building sign.
+The output is intended to be passed through an OCR to extract text off the sign.
 
 Params:
     image (np.ndarray): The original image to be transformed
@@ -82,7 +94,16 @@ def perspective_crop(image: np.ndarray, points: np.ndarray) -> np.ndarray | None
     return warped
 
 '''
-TODO put docstrings im tooooo lazyy right now, puts OCR text with white background next to cropped photo
+Takes in a cropped photo of a building sign and displays OCR information to its right.
+The extracted text and confidence level is displayed in black text on white background.
+
+Params:
+    crop (np.ndarray): The cropped building sign image
+    text (str): The extracted text
+    conf (float): The confidence of the extracted OCR text
+
+Returns:
+    output (np.ndarray): Output image containing the cropped building sign & OCR info
 '''
 def create_ocr_output(crop: np.ndarray, text: str, conf: float) -> np.ndarray:
     panel_width = max(400, crop.shape[1])
@@ -138,20 +159,20 @@ def create_ocr_output(crop: np.ndarray, text: str, conf: float) -> np.ndarray:
     return output
 
 '''
-Takes in a photo & runs a model to detect regions of interest (building signs).
-The photo is then cropped and transformed to provide a straight rectangular view of the ROI.
-If the model is not confident enough in its inference, the photo is ignored
+Takes in a photo & runs a YOLO model to detect building signs.
+The photo is then cropped to only contain the building sign.
+If the model is not confident enough in its inference, the photo is ignored.
 
 Params:
-    model (YOLO): The YOLO model that detects ROIs
+    model (YOLO): The YOLO model that detects building signs
     img_path (Path): The path to the image that will be processed
-    output_dir (Path): The path to the directory where the processed images will be stored
-    confidence (float): The minimum confidence required for the ROI to be considered
+    out_dir (Path): The path to the output directory where processed images will be stored
+    conf (float): The minimum confidence required for the building sign to be considered
 
 Returns:
     None
 '''
-def detect_signs(model: YOLO, ocr: PaddleOCR, img_path: Path, output_dir: Path, confidence: float):
+def detect_signs(model: YOLO, ocr: PaddleOCR, img_path: Path, out_dir: Path, conf: float):
     # Added in ocr
     img = cv2.imread(str(img_path))
 
@@ -160,18 +181,18 @@ def detect_signs(model: YOLO, ocr: PaddleOCR, img_path: Path, output_dir: Path, 
         print(f"[ERROR] {img_path.name} not found or unable to read")
         return
 
-    results = model(img, conf=confidence)
+    results = model(img, conf=conf)
 
     num_signs = 0
 
-    # TODO Don't need this for loop right now because only processing one photo at a time
+    # Note: Don't need this for loop right now because only processing one photo at a time
     for result in results:
         if result.obb is None:
             continue
 
         # xyxyxyxy = OBB polygon format with 4-corner points
         # need to ensure process is specifically on CPU before numpy
-        boxes = result.obb.xyxyxyxy.cpu().numpy() # Convets tensor to numpy array
+        boxes = result.obb.xyxyxyxy.cpu().numpy() # Converts tensor to numpy array
 
         for box in boxes:
             crop = perspective_crop(img, box)
@@ -188,9 +209,9 @@ def detect_signs(model: YOLO, ocr: PaddleOCR, img_path: Path, output_dir: Path, 
             # ---------------------(END) OCR Section----------------------
 
             output_name = (f"{img_path.stem}_sign_{num_signs}.jpg")
-            output_path = output_dir / output_name
+            output_path = out_dir / output_name
             cv2.imwrite(str(output_path), output)
-            # cv2.imwrite(str(output_path), crop)
+            # cv2.imwrite(str(output_path), crop) # Use if you don't want OCR output, just cropped photo
 
             num_signs += 1
     print(
@@ -259,7 +280,7 @@ def main():
 
     # Go through each photo and crop the signs
     for photo in photos:
-        # detect_signs(model, photo, photos_root, args.confidence) # Og
+        # detect_signs(model, photo, photos_root, args.confidence) # Use if you don't want OCR output, just cropped photo
         detect_signs(model, ocr, photo, photos_root, args.confidence)
     #---------------------(END) OCR Section----------------------
     print("\nFinished")
