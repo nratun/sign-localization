@@ -1,5 +1,17 @@
-from pathlib import Path
+#!/usr/bin/env python
+
+"""
+extract_frames.py: An offline MP4 video frame-extractor
+
+For this project, this file was used to extract video frames for use to train/test a YOLO OBB model
+
+Usage:
+    python extract_frames.py <video_directory> [--interval <seconds>] [--overwrite]
+Example:
+    python extract_frames.py dataset/vids/ --interval 1.0
+"""
 import argparse
+from pathlib import Path
 import cv2
 
 '''
