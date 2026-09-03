@@ -1,11 +1,19 @@
-from ultralytics import YOLO
-import sys
+#!/usr/bin/env python
 
-'''
-Trains a model using customized parameters for most optimal output.
-A pretrained YOLO Object Bounding Boxes model is used.
-'''
+"""
+model.py: Trains and validates a YOLO OBB model using custom parameters
+
+Usage:
+    python model.py train
+    python model.py validate
+"""
+import sys
+from ultralytics import YOLO
+
 def train():
+    '''
+    Trains a YOLO OBB model using customized parameters and a pretrained model.
+    '''
     # Load pretrained OBB model
     model = YOLO("models/yolo26s-obb.pt")
 
@@ -45,12 +53,15 @@ def train():
     )
 
 def validate():
+    '''
+    Validates the trained YOLO model and prints its mAP metrics.
+    '''
     # Load trained model
     model = YOLO("runs/obb/runs/train/r/weights/best.pt")
 
     # Validate the model
     metrics = model.val()
-    print("Map50-95:\t", metrics.box.map)    # map50-95
+    print("Map50-95:\t", metrics.box.map)      # map50-95
     print("Map50:\t", metrics.box.map50)       # map50
     print("Map75:\t", metrics.box.map75)       # map75
 
