@@ -4,6 +4,7 @@
 crop_signs.py: Crops photos to contain only building signs detected by a YOLO model with OCR output
 
 For this project, this file was used alongisde OCR text extraction for testing/debugging purposes.
+All output photos are saved to a specified directory.
 
 Usage:
     python crop_signs.py <image_directory> [--model <model_path>] [--confidence <threshold>] [--overwrite]
@@ -20,18 +21,19 @@ from paddleocr import PaddleOCR
 
 from ocr import ocr_text
 
-'''
-Takes in 4 (x,y) points representing a bounding box and places them in order.
-The order of the points is determined by their values when added/subtracted.
 
-Params:
-    points (np.ndarray): An unordered array of 4 (x,y) points representing a bounding box
-
-Returns:
-    rect (np.ndarray): An ordered array of 4 (x,y) points representing a bounding box
-        Order: top left, top right, bottom right, bottom left
-'''
 def order_points(points: np.ndarray) -> np.ndarray:
+    '''
+    Takes in 4 (x,y) points representing a bounding box and places them in order.
+    The order of the points is determined by their values when added/subtracted.
+
+    Params:
+        points (np.ndarray): An unordered array of 4 (x,y) points representing a bounding box
+
+    Returns:
+        rect (np.ndarray): An ordered array of 4 (x,y) points representing a bounding box
+            Order: top left, top right, bottom right, bottom left
+    '''
     # An array of 4 (x, y) points representing a rectangle
     rect = np.zeros((4, 2), dtype="float32")
 
@@ -47,18 +49,18 @@ def order_points(points: np.ndarray) -> np.ndarray:
 
     return rect
 
-'''
-Takes in an image and 4 (x,y) points representing a rectangular bounding box.
-The output image provides a cropped rectangular image of a building sign.
-The output is intended to be passed through an OCR to extract text off the sign.
-
-Params:
-    image (np.ndarray): The original image to be transformed
-
-Returns:
-    warped (np.ndarray): The modified image that has been transformed
-'''
 def perspective_crop(image: np.ndarray, points: np.ndarray) -> np.ndarray | None:
+    '''
+    Takes in an image and 4 (x,y) points representing a rectangular bounding box.
+    The output image provides a cropped rectangular image of a building sign.
+    The output is intended to be passed through an OCR to extract text off the sign.
+
+    Params:
+        image (np.ndarray): The original image to be transformed
+
+    Returns:
+        warped (np.ndarray): The modified image that has been transformed
+    '''
     rect = order_points(points)
     (tl, tr, br, bl) = rect
 
@@ -93,19 +95,19 @@ def perspective_crop(image: np.ndarray, points: np.ndarray) -> np.ndarray | None
     warped = cv2.warpPerspective(image, matrix, (width, height))    # Apply transformation matrix
     return warped
 
-'''
-Takes in a cropped photo of a building sign and displays OCR information to its right.
-The extracted text and confidence level is displayed in black text on white background.
-
-Params:
-    crop (np.ndarray): The cropped building sign image
-    text (str): The extracted text
-    conf (float): The confidence of the extracted OCR text
-
-Returns:
-    output (np.ndarray): Output image containing the cropped building sign & OCR info
-'''
 def create_ocr_output(crop: np.ndarray, text: str, conf: float) -> np.ndarray:
+    '''
+    Takes in a cropped photo of a building sign and displays OCR information to its right.
+    The extracted text and confidence level is displayed in black text on white background.
+
+    Params:
+        crop (np.ndarray): The cropped building sign image
+        text (str): The extracted text
+        conf (float): The confidence of the extracted OCR text
+
+    Returns:
+        output (np.ndarray): Output image containing the cropped building sign & OCR info
+    '''
     panel_width = max(400, crop.shape[1])
     output_height = max(crop.shape[0], 200)
 
@@ -121,6 +123,7 @@ def create_ocr_output(crop: np.ndarray, text: str, conf: float) -> np.ndarray:
     # Starting position for text
     text_x = crop.shape[1] + 20
 
+    # Title
     cv2.putText(
         output,
         "OCR:",
@@ -158,22 +161,21 @@ def create_ocr_output(crop: np.ndarray, text: str, conf: float) -> np.ndarray:
 
     return output
 
-'''
-Takes in a photo & runs a YOLO model to detect building signs.
-The photo is then cropped to only contain the building sign.
-If the model is not confident enough in its inference, the photo is ignored.
-
-Params:
-    model (YOLO): The YOLO model that detects building signs
-    img_path (Path): The path to the image that will be processed
-    out_dir (Path): The path to the output directory where processed images will be stored
-    conf (float): The minimum confidence required for the building sign to be considered
-
-Returns:
-    None
-'''
 def detect_signs(model: YOLO, ocr: PaddleOCR, img_path: Path, out_dir: Path, conf: float):
-    # Added in ocr
+    '''
+    Takes in a photo & runs a YOLO model to detect building signs.
+    The photo is then cropped to only contain the building sign.
+    If the model is not confident enough in its inference, the photo is ignored.
+
+    Params:
+        model (YOLO): The YOLO model that detects building signs
+        img_path (Path): The path to the image that will be processed
+        out_dir (Path): The path to the output directory where processed images will be stored
+        conf (float): The minimum confidence required for the building sign to be considered
+
+    Returns:
+        None
+    '''
     img = cv2.imread(str(img_path))
 
     # Can't open photo
@@ -182,7 +184,6 @@ def detect_signs(model: YOLO, ocr: PaddleOCR, img_path: Path, out_dir: Path, con
         return
 
     results = model(img, conf=conf)
-
     num_signs = 0
 
     # Note: Don't need this for loop right now because only processing one photo at a time

@@ -1,19 +1,27 @@
-from ultralytics import YOLO
-import numpy as np
+#!/usr/bin/env python
+
+"""
+live_crop_signs.py: Crops photos to contain only building signs detected by a YOLO model.
+
+This file is different from crop_signs.py in that it is intended to work in tandem with live footage.
+The detect_signs function is called in video_stream.py for each frame to detect signs in real-time.
+"""
 import cv2
+import numpy as np
+from ultralytics import YOLO
 
-'''
-Takes in 4 (x,y) points representing a bounding box and places them in order.
-The order of the points is determined by their values when added/subtracted.
-
-Params:
-    points (np.ndarray): An unordered array of 4 (x,y) points representing a bounding box
-
-Returns:
-    rect (np.ndarray): An ordered array of 4 (x,y) points representing a bounding box
-        Order: top left, top right, bottom right, bottom left
-'''
 def order_points(points: np.ndarray) -> np.ndarray:
+    '''
+    Takes in 4 (x,y) points representing a bounding box and places them in order.
+    The order of the points is determined by their values when added/subtracted.
+
+    Params:
+        points (np.ndarray): An unordered array of 4 (x,y) points representing a bounding box
+
+    Returns:
+        rect (np.ndarray): An ordered array of 4 (x,y) points representing a bounding box
+            Order: top left, top right, bottom right, bottom left
+    '''
     # An array of 4 (x, y) points representing a rectangle
     rect = np.zeros((4, 2), dtype="float32")
 
@@ -29,19 +37,18 @@ def order_points(points: np.ndarray) -> np.ndarray:
 
     return rect
 
-'''
-Warps the perspective of an image while cropping it to fit only the desired object
-Takes in an image and 4 (x,y) points representing a rectangular bounding box.
-The output image provides a straight, cropped rectangular image of a building sign.
-The output image is intended to be passed through an OCR to extract text off the sign.
-
-Params:
-    image (np.ndarray): The original image to be transformed
-
-Returns:
-    warped (np.ndarray): The modified image that has been transformed
-'''
 def perspective_crop(image: np.ndarray, points: np.ndarray) -> np.ndarray | None:
+    '''
+    Takes in an image and 4 (x,y) points representing a rectangular bounding box.
+    The output image provides a cropped rectangular image of a building sign.
+    The output is intended to be passed through an OCR to extract text off the sign.
+
+    Params:
+        image (np.ndarray): The original image to be transformed
+
+    Returns:
+        warped (np.ndarray): The modified image that has been transformed
+    '''
     rect = order_points(points)
     (tl, tr, br, bl) = rect
 
@@ -76,25 +83,24 @@ def perspective_crop(image: np.ndarray, points: np.ndarray) -> np.ndarray | None
     warped = cv2.warpPerspective(image, matrix, (width, height))    # Apply transformation matrix
     return warped
 
-'''
-Takes in a photo & runs a model to detect regions of interest (building signs).
-The photo is then cropped and transformed to provide a straight rectangular view of the ROI.
-If the model is not confident enough in its inference, the photo is ignored
+def detect_signs(model: YOLO, frame: np.ndarray, conf: float) -> list[dict]:
+    '''
+    Takes in a photo & runs a YOLO model to detect building signs.
+    The photo is then cropped to only contain the building sign.
+    If the model is not confident enough in its inference, the photo is ignored.
 
-Params:
-    model (YOLO): The YOLO model that detects ROIs
-    frame (np.ndarray): The frame to be transformed
-    confidence (float): The minimum confidence required for the ROI to be considered
+    Params:
+        model (YOLO): The YOLO model that detects building signs
+        frame (np.ndarray): The frame to be transformed
+        conf (float): The minimum confidence required for the building sign to be considered
 
-Returns:
-    signs (list[dict]): The detected signs & their attributes
-'''
-def detect_signs(model: YOLO, frame: np.ndarray, confidence: float) -> list[dict]:
-
-    results = model(frame, conf=confidence)
+    Returns:
+        signs (list[dict]): The detected signs & their attributes
+    '''
+    results = model(frame, conf=conf)
     signs = []
 
-    # TODO Don't need this for loop right now because only processing one photo at a time
+    # Note: Don't need this for loop right now because only processing one photo at a time
     for result in results:
         if result.obb is None:
             continue

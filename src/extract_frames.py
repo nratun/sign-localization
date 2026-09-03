@@ -14,20 +14,20 @@ import argparse
 from pathlib import Path
 import cv2
 
-'''
-Takes in an MP4 video and extracts a specific amount of frames from it.
-The amount of frames extracted is dependent on the interval selected (smaller = more).
-The extracted frames are stored in a separate directory.
-
-Params:
-    video (Path): The path to the video that will be processed
-    out_dir (Path): The path to the directory where the processed frames will be stored
-    interval (float): How often we want frames to be extracted (in seconds), 0.5 by default
-
-Returns:
-    None
-'''
 def extract_frames(video: Path, out_dir: Path, interval: float):
+    '''
+    Takes in an MP4 video and extracts a specific amount of frames from it.
+    The amount of frames extracted is dependent on the interval selected (smaller = more).
+    The extracted frames are stored in a separate directory.
+
+    Params:
+        video (Path): The path to the video that will be processed
+        out_dir (Path): The path to the directory where the processed frames will be stored
+        interval (float): How often we want frames to be extracted (in seconds), 0.5 by default
+
+    Returns:
+        None
+    '''
     vid = cv2.VideoCapture(str(video))
 
     # Can't open video
