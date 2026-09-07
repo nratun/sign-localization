@@ -1,13 +1,13 @@
 from pathlib import Path
-from ultralytics import YOLO
-from live_crop_signs import detect_signs
+from sign_tracker import SignTracker
 import argparse
 import cv2
 
 '''
 Takes in an MP4 video and displays it as a continuous video stream.
-Each frame is passed onto the cropping phase, where a YOLO model will check for room signs.
-Detected signs are used to infer the location during the video and updated accordingly.
+Each frame is passed to the sign tracker, where a YOLO model detect & track room signs.
+
+Tracked signs are later used to infer the location during the video and updated accordingly.
 
 Params:
     video (Path): The path to the video that will be processed
@@ -16,6 +16,11 @@ Returns:
     None
 '''
 def stream_video(video: Path):
+    tracker = SignTracker(
+        model="runs/train/r/weights/best.pt",
+        conf=0.95
+    )
+
     vid = cv2.VideoCapture(str(video))
 
     # Can't open video
@@ -40,12 +45,20 @@ def stream_video(video: Path):
         if not success:
             break
 
-        model = YOLO("runs/train/r/weights/best.pt")
-        confidence = 0.95
-        # Pass frame into crop
-        signs = detect_signs(model, frame, confidence)
-        # track signs to see iuf they're the same or different
-        # Show changed floor plan here?
+        # Pass frame into sign detector/tracker
+        signs = tracker.track_signs(frame)
+
+        for sign in signs:
+            print(
+                f"Sign ID: {sign['id']} | "
+                f"Confidence: {sign['conf']:.3f}"
+            )
+
+        # next steps:
+        # choose specific frame to crop (maybe based on confidence?)
+        # crop specific tracked sign with live_crop_signs
+        # Run OCR on crop
+        # Show changed floor plan/location
 
         display = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5) # Video feed was too large for screen, reduce 50%
         cv2.imshow("Video Feed", display)
@@ -59,7 +72,7 @@ def stream_video(video: Path):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="DIsplay MP4 video as continuous stream"
+        description="Display MP4 video as continuous stream"
     )
     parser.add_argument(
         "video",

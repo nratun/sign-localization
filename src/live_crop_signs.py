@@ -4,11 +4,9 @@
 live_crop_signs.py: Crops photos to contain only building signs detected by a YOLO model.
 
 This file is different from crop_signs.py in that it is intended to work in tandem with live footage.
-The detect_signs function is called in video_stream.py for each frame to detect signs in real-time.
 """
 import cv2
 import numpy as np
-from ultralytics import YOLO
 
 def order_points(points: np.ndarray) -> np.ndarray:
     '''
@@ -82,45 +80,3 @@ def perspective_crop(image: np.ndarray, points: np.ndarray) -> np.ndarray | None
     matrix = cv2.getPerspectiveTransform(rect, destination)         # Transformation matrix
     warped = cv2.warpPerspective(image, matrix, (width, height))    # Apply transformation matrix
     return warped
-
-def detect_signs(model: YOLO, frame: np.ndarray, conf: float) -> list[dict]:
-    '''
-    Takes in a photo & runs a YOLO model to detect building signs.
-    The photo is then cropped to only contain the building sign.
-    If the model is not confident enough in its inference, the photo is ignored.
-
-    Params:
-        model (YOLO): The YOLO model that detects building signs
-        frame (np.ndarray): The frame to be transformed
-        conf (float): The minimum confidence required for the building sign to be considered
-
-    Returns:
-        signs (list[dict]): The detected signs & their attributes
-    '''
-    results = model(frame, conf=conf)
-    signs = []
-
-    # Note: Don't need this for loop right now because only processing one photo at a time
-    for result in results:
-        if result.obb is None:
-            continue
-
-        # xyxyxyxy = OBB polygon format with 4-corner points
-        # need to ensure process is specifically on CPU before numpy
-        boxes = result.obb.xyxyxyxy.cpu().numpy() # Convets tensor to numpy array
-        confs = result.obb.conf.cpu().numpy() # Used later down the line
-
-        # Iterate through both lists in parallel
-        for box, conf in zip(boxes, confs):
-            crop = perspective_crop(frame, box)
-
-            if crop is None:
-                continue
-
-            signs.append({
-                "box": box,
-                "crop": crop,
-                "conf": float(conf)
-            })
-
-    return signs
