@@ -139,7 +139,7 @@ class SignTracker:
             sign.best_conf = conf
             sign.best_area = area
 
-            # Store entire frame because perspective_crop() needs og frame coordinates
+            # Store entire frame because crops need og frame coordinates
             sign.best_frame = frame.copy()
             sign.points = points.copy()
 

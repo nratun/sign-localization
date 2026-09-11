@@ -17,7 +17,7 @@ def preprocess_ocr(image):
 
     return thresh
 
-def ocr_text(ocr, image) -> tuple[str, float]:
+def ocr_text(ocr, image) -> list[dict]:
     # Preprocess image (not using for now)
     # processed = preprocess_ocr(image)
 
@@ -25,52 +25,22 @@ def ocr_text(ocr, image) -> tuple[str, float]:
     result = ocr.predict(image)
 
     if not result:
-        return "", 0.0
+        return []
 
     result = result[0]
     texts = result.get("rec_texts", [])
     scores = result.get("rec_scores", [])
+    coords = result.get("rec_polys", [])
 
-    if not texts:
-        return "", 0.0
-    
-    # Combine all detected text
-    text = " ".join(texts)
-    text = text.strip().upper()
+    detections = []
 
-    # Calculate average confidence
-    if scores:
-        conf = sum(scores) / len(scores)
-    else:
-        conf = 0.0
+    # Example format:
+    # { "text": "397", "conf": 0.97, "box": np.array([[12, 8], [30, 8], [30, 20], [12, 20]]) }
+    for text, score, points in zip(texts, scores, coords):
+        detections.append({
+            "text": text,
+            "conf": float(score),
+            "points": points
+        })
 
-    return text, conf
-
-def main():
-    ocr = PaddleOCR(
-        lang="en",
-        device="cpu", # If using multi-gpu system gpu:0
-        enable_mkldnn=False
-    )
-
-    # Test image
-    img_path = "dataset/crops/IMG_5024_sign_0.jpg"
-
-    image = cv2.imread(img_path)
-
-    if image is None:
-        raise FileNotFoundError(
-            f"Could not load image: {img_path}"
-        )
-
-    # Run OCR
-    text, confidence = ocr_text(
-        ocr,
-        image
-    )
-
-    print(f"Text: {text}")
-    print(f"Confidence: {confidence:.3f}")
-
-if __name__ == "__main__":
-    main()
+    return detections

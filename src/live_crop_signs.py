@@ -8,6 +8,40 @@ This file is different from crop_signs.py in that it is intended to work in tand
 import cv2
 import numpy as np
 
+def simple_crop(image: np.ndarray, points: np.ndarray) -> np.ndarray | None:
+    '''
+    Takes in an image and 4 (x,y) points representing a bounding box.
+    Returns a cropped rectangular image of a building sign.
+    The output is intended to be passed through an OCR to extract text off the sign.
+
+    Unlike perspective_crop(), this function does not transform the image.
+    It simply takes the rectangular region surrounding the detected sign.
+
+    Params:
+        image (np.ndarray): The original image to be cropped
+        points (np.ndarray): The four corner points of the bounding box
+
+    Returns:
+        roi (np.ndarray | None): Rectangular region containing the sign (None if dimensions are invalid)
+    '''
+    # (x1, y1) make top left corner of box
+    x1 = max(0, int(np.floor(points[:, 0].min())))
+    y1 = max(0, int(np.floor(points[:, 1].min())))
+
+    # (x2, y2) make bottom right corner of region of interest
+    x2 = min(image.shape[1], int(np.ceil(points[:, 0].max())))
+    y2 = min(image.shape[0], int(np.ceil(points[:, 1].max())))
+
+    # Bad coords
+    if x2 <= x1 or y2 <= y1:
+        return None
+
+    roi = image[y1:y2, x1:x2]
+    if roi.size == 0:
+        return None
+
+    return roi
+
 def order_points(points: np.ndarray) -> np.ndarray:
     '''
     Takes in 4 (x,y) points representing a bounding box and places them in order.
@@ -41,8 +75,12 @@ def perspective_crop(image: np.ndarray, points: np.ndarray) -> np.ndarray | None
     The output image provides a cropped rectangular image of a building sign.
     The output is intended to be passed through an OCR to extract text off the sign.
 
+    Unlike simple_crop(), this function transforms the image by mapping the points to fit
+    the corners of a perfect rectangle (involves stretching/compressing).
+
     Params:
         image (np.ndarray): The original image to be transformed
+        points (np.ndarray): The four corner points of a bounding box, in order
 
     Returns:
         warped (np.ndarray): The modified image that has been transformed

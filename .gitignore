@@ -20,6 +20,9 @@ dataset/frames/
 dataset/crops/
 dataset/floors/
 
+# Demo
+demo
+
 # YOLO
 models/*.pt
 runs/
