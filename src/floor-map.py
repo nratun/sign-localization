@@ -1,5 +1,4 @@
 import yaml
-import re
 from pathlib import Path
 
 # Focus only on floor 3 right now, since that's where I have the most video content
@@ -91,66 +90,14 @@ def get_landmarks(vertices):
 
     return landmarks
 
-'''
-Normalize OCR text so it can be compared with room labels.
-Examples:
-    "316a" -> "316A"
-    "316 A" -> "316A"
-    "316A." -> "316A"
-    " 316A " -> "316A"
-'''
-def fix_text(text):
-    # This would not work in the event that the ocr can't detect 3 numbers or mistakes a number for a letter
-    if not text: return ""
-    text = text.upper()
-    text = re.sub(r"[^A-Z0-9]", "", text) # Remove spaces & unnecessary stuff
-    match = re.search(r"\d{3}[A-D]?", text) # Find 3 digits & optional letter A-D
-    if not match: return ""
-    return match.group()
-
-'''Create a dictionary mapping room labels to their vertices'''
-def map_rooms(landmarks):
-    rooms = {}
-
-    for label, landmark in landmarks.items():
-        normalized = fix_text(label)
-
-        rooms[normalized] = { 
-            "vertex_id": landmark["vertex_id"],
-            "x": landmark["x"],
-            "y": landmark["y"],
-            "label": label
-        }
-    return rooms
-
-'''
-Match OCR text against known room labels.
-Returns: Matched room dictionary, or None if no match exists
-'''
-def match_room(text, room_lookup):
-    normalized = fix_text(text)
-    if not normalized: return None
-    return room_lookup.get(normalized)
-
-def update_vehicle(curr_vtx, text, room_lookup):
-    match = match_room(text, room_lookup)
-    if match: return match["vertex_id"]
-    return curr_vtx
-
 def main():
     floor_data = load_yaml()
     vertices, edges = build_graph(floor_data)
     landmarks = get_landmarks(vertices)
-    room_lookup = map_rooms(landmarks)
 
     curr_vtx = None
     # Test OCR outputs
     test_texts = ["316a", "316 B", "316C.", "317D", "999", "", "CAR LAB 316 X-RAY", "ROOM 316B"]
-
-    for text in test_texts:
-        curr_vtx = update_vehicle(curr_vtx, text, room_lookup)
-
-        print(f"OCR: '{text}' -> vehicle at vertex {curr_vtx}")
 
 if __name__ == "__main__":
     main()
