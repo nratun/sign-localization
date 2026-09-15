@@ -7,6 +7,31 @@ FLOORS_DIR = Path("dataset/floors")
 YAML_NAME = "floor-plan.yaml"
 FLOOR_NAME = "floor3"
 
+LANDMARKS = {
+    "303",
+    "305",
+    "306",
+    "315",
+    "316",
+    "316A",
+    "316B",
+    "316C",
+    "316D",
+    "317",
+    "320",
+    "321",
+    "322",
+    "323",
+    "324",
+    "325",
+    "326",
+    "327",
+    "328",
+    "331",
+    "335",
+    "336",
+}
+
 def load_yaml():
     # Find YAML file and return floor 3 config
     yaml_path = FLOORS_DIR / YAML_NAME
@@ -22,7 +47,7 @@ def build_rooms(floor_data: dict) -> set[str]:
     for vertex in floor_data["vertices"]:
         label = vertex[3]
 
-        if label is None:
+        if not label:
             continue
 
         rooms.add(str(label).upper())
@@ -31,7 +56,7 @@ def build_rooms(floor_data: dict) -> set[str]:
 '''
 First check for a complete room like "316A"
 Next check simple 3 digit room
-Number related to lettered room? Search other extractions for valid A-D suffix\
+Number related to lettered room? Search other extractions for valid A-D suffix
 No valid suffix found? Return simple room
 No room found? Return none
 '''
@@ -39,14 +64,14 @@ def find_room(detections: list[dict], rooms: set[str]) -> str | None:
     # First check for a complete room like "316A"
     for detection in detections:
         text = detection["text"].upper()
-        match = re.search(r"\d{3}[A-D]?", text)
+        match = re.search(r"\d{3}[A-D]", text)
 
         if not match:
             continue
 
         room = match.group()
         if room in rooms:
-            return room_num
+            return room
 
     # Next check simple 3 digit room
     for detection in detections:
@@ -65,6 +90,7 @@ def find_room(detections: list[dict], rooms: set[str]) -> str | None:
 
         # Does this number have lettered rooms?
         candidates = [room for room in rooms if room.startswith(room_num) and len(room) == 4]
+        print(candidates)
 
         # Search other OCR extractions for a valid A-D suffix
         if candidates:
@@ -85,17 +111,22 @@ def find_room(detections: list[dict], rooms: set[str]) -> str | None:
     return None
 
 def main():
+
     floor_data = load_yaml()
     rooms = build_rooms(floor_data)
 
     tests = [
+        [{"text": "335", "conf": 0.99, "points": None}],
+        [{"text": "999", "conf": 0.99, "points": None}],
         [{"text": "316A", "conf": 0.99, "points": None}],
         [
             {"text": "316", "conf": 0.95, "points": None},
             {"text": "B", "conf": 0.91, "points": None}
         ],
-        [{"text": "335", "conf": 0.99, "points": None}],
-        [{"text": "999", "conf": 0.99, "points": None}]
+        [
+            {"text": "B", "conf": 0.95, "points": None},
+            {"text": "316", "conf": 0.91, "points": None}
+        ]
     ]
 
     for test in tests:

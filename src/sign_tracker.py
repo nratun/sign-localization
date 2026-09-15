@@ -6,11 +6,7 @@ from dataclasses import dataclass
 @dataclass
 class SignInfo:
     missed: int = 0
-    best_quality: float = -1.0
-    best_conf: float = 0.0
-    best_area: int = 0
-    best_frame: np.ndarray | None = None
-    points: np.ndarray | None = None
+    frames_seen: int = 0
 
 class SignTracker:
     def __init__(
@@ -30,7 +26,7 @@ class SignTracker:
         self.model = YOLO(model)
         self.conf = conf
         self.max_missed = max_missed
-        self.signs = dict[int, SignInfo] = {}
+        self.signs: dict[int, SignInfo] = {}
 
     def track_signs(self, frame: np.ndarray) -> list[dict]:
         '''
@@ -49,7 +45,6 @@ class SignTracker:
         signs = []
         curr_ids = set()
 
-        # Note: Don't need this for loop right now because only processing one photo at a time
         for result in results:
             if result.obb is None:
                 continue
@@ -75,15 +70,18 @@ class SignTracker:
                 if id not in self.signs:
                     self.signs[id] = SignInfo()
 
-                self.signs[id].missed = 0
-                self.set_best_info(id, frame, points, conf)
+                sign = self.signs[id]
+                sign.missed = 0
+                sign.frames_seen += 1
 
                 signs.append({
                     "id": id,
                     "points": points,
-                    "conf": conf
+                    "conf": conf,
+                    "frames_seen": sign.frames_seen
                 })
 
+        # Signs not detected in current frame
         for id in list(self.signs):
             if id not in curr_ids:
                 self.signs[id].missed += 1
@@ -93,58 +91,6 @@ class SignTracker:
 
         return signs
 
-    # Calcs img quality to be used to calc best frame
-    def img_quality(self, crop: np.ndarray) -> float:
-        gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
-        sharpness = cv2.Laplacian(gray, cv2.CV_64F).var()
-        return float(sharpness)
-
-    # Gets area of the sign to be later used to calc best frame
-    def sign_area(self, points: np.ndarray) -> int:
-        width = points[:, 0].max() - points[:, 0].min()
-        height = points[:, 1].max() - points[:, 1].min()
-        return int(width * height)
-
-    # Setter function to set best frame for sign
-    def set_best_info(self, id: int, frame: np.ndarray, points: np.ndarray, conf: float):
-        # Taking idea of perspective warp and trying to only box the building sign
-        # (x1, y1)----(x2, y1)
-        #    |           |
-        # (x1, y2)----(x2, y2)
-
-        # (x1, y1) make top left corner of box
-        x1 = max(0, int(np.floor(points[:, 0].min())))
-        y1 = max(0, int(np.floor(points[:, 1].min())))
-
-        # (x2, y2) make bottom right corner of region of interest
-        x2 = min(frame.shape[1], int(np.ceil(points[:, 0].max())))
-        y2 = min(frame.shape[0],int(np.ceil(points[:, 1].max())))
-
-        # Bad coords
-        if x2 <= x1 or y2 <= y1:
-            return
-
-        box = frame[y1:y2, x1:x2]
-        if box.size == 0:
-            return
-
-        quality = self.img_quality(box)
-        area = self.sign_area(points)
-        sign = self.signs[id]
-
-        # Use measure of sharpness to determine if it's best captured frame of a sign
-        # TODO incorporate area & conf, potentially even more complex method to determine best frame
-        if quality > sign.best_quality:
-            sign.best_quality = quality
-            sign.best_conf = conf
-            sign.best_area = area
-
-            # Store entire frame because crops need og frame coordinates
-            sign.best_frame = frame.copy()
-            sign.points = points.copy()
-
-        return
-
     # Basically a getter function for other files like live_crop to get the necessary info
-    def get_best_info(self, id: int) -> SignInfo | None:
+    def get_sign_info(self, id: int) -> SignInfo | None:
         return self.signs.get(id)
