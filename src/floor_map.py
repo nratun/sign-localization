@@ -9,32 +9,6 @@ FLOORS_DIR = Path("dataset/floors")
 YAML_NAME = "floor-plan.yaml"
 FLOOR_NAME = "floor3"
 
-# Vertices that I care about for the sake of testing
-LANDMARKS = {
-    "303",
-    "305",
-    "306",
-    "315",
-    "316",
-    "316A",
-    "316B",
-    "316C",
-    "316D",
-    "317",
-    "320",
-    "321",
-    "322",
-    "323",
-    "324",
-    "325",
-    "326",
-    "327",
-    "328",
-    "331",
-    "335",
-    "336",
-}
-
 @dataclass
 class Vertex:
     x: float
@@ -45,8 +19,6 @@ class Vertex:
 @dataclass
 class Landmark:
     vertex_id: int
-    x: float
-    y: float
 
 def load_yaml():
     #Find YAML file and return floor 3 config
@@ -86,10 +58,10 @@ def get_landmarks(vertices: dict[int, Vertex]) -> dict[str, Landmark]:
     landmarks = {}
 
     for vertex_id, vertex in vertices.items():
-        if vertex.label not in LANDMARKS:
+        if not vertex.label:
             continue
 
-        landmarks[vertex.label] = Landmark(vertex_id=vertex_id, x=vertex.x, y=vertex.y)
+        landmarks[vertex.label] = Landmark(vertex_id=vertex_id)
 
     return landmarks
 
@@ -137,7 +109,8 @@ class FloorMap:
 
         # Identify landmarks
         for label, landmark in self.landmarks.items():
-            point = self._to_screen(landmark.x, landmark.y)
+            vertex = self.vertices[landmark.vertex_id]
+            point = self._to_screen(vertex.x, vertex.y)
 
             cv2.putText(
                 background,

@@ -33,10 +33,11 @@ def stream_video(video: Path):
     ocr = PaddleOCR(
         lang="en",
         device="cpu",
-        enable_mlkdnn=False
+        enable_mkldnn=False
     )
 
     floor_data = load_yaml()
+    rooms = build_rooms(floor_data)
     vertices, edges = build_graph(floor_data)
     landmarks = get_landmarks(vertices)
 
@@ -44,7 +45,7 @@ def stream_video(video: Path):
 
     curr_vtx = None
     curr_room = None
-    seen_signs = set()
+    known_signs = set() # Signs that already have valid rooms found
     ocr_counters = {} # Number frames since last ocr for each sign
 
     # ----------------------------INtake video----------------------------
@@ -75,39 +76,57 @@ def stream_video(video: Path):
         # Pass frame into sign detector/tracker
         signs = tracker.track_signs(frame)
 
-        curr_ids = set()
-
         for sign in signs:
             id = sign["id"]
-            curr_ids.add(id)
 
-        # Don't ocr already known signs
-        if id in seen_signs:
-            continue
+            # Don't ocr already known signs
+            if id in known_signs:
+                continue
 
-        # First time seeing sign
-        if id not in ocr_counters:
+            # First time seeing sign
+            if id not in ocr_counters:
+                ocr_counters[id] = 0
+                do_ocr = True
+            # Already seen sign before, check if needs ocr attempt again
+            else:
+                ocr_counters[id] += 1
+                do_ocr = ocr_counters[id] >= OCR_RETRY
+
+            if not do_ocr:
+                continue
+
             ocr_counters[id] = 0
-            do_ocr = True
-        # Already seen sign before, check if needs ocr attempt again
-        else:
-            ocr_counters[id] += 1
-            do_ocr = ocr_counters[id] >= OCR_RETRY
 
-        if not do_ocr:
-            continue
+            # ---------------------Crop, OCR, Lookup, Map---------------------
+            crop = simple_crop(frame, sign["points"])
 
-        ocr_counters[id] = 0
+            if crop is None: # ndarray check None
+                continue
 
-        # next steps:
-        # crop frame with live_crop_signs
-        # Run OCR on crop
-        # Show changed floor plan/location
-        # need to remove sign from ocr atrempt if its irrelevant
-        # blah blah i probably missed some stuff but whatevber
+            detections = ocr_text(ocr, crop)
+            room = find_room(detections, rooms)
 
+            print(f"Sign ID {id} | OCR: {detections}")
+
+            if room is not None:
+                print(f"FOUND ID {id} | ROOM: {room}")
+                curr_room = room
+                curr_vtx = floor_map.room_to_vertex(room)
+                known_signs.add(id)
+
+                # Room found, don't ocr anymore
+                ocr_counters.pop(id, None)
+
+        # Removed ocr tracking for for untracked signs
+        for id in list(ocr_counters):
+            if tracker.get_sign_info(id) is None:
+                ocr_counters.pop(id, None)
+
+        # ----------------------------Update Displays----------------------------
         display = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5) # Video feed was too large for screen, reduce 50%
         cv2.imshow("Video Feed", display)
+
+        floor_map.display(curr_vtx, curr_room)
 
         if cv2.waitKey(delay) & 0xFF == ord("q"):
             break

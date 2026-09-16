@@ -7,31 +7,6 @@ FLOORS_DIR = Path("dataset/floors")
 YAML_NAME = "floor-plan.yaml"
 FLOOR_NAME = "floor3"
 
-LANDMARKS = {
-    "303",
-    "305",
-    "306",
-    "315",
-    "316",
-    "316A",
-    "316B",
-    "316C",
-    "316D",
-    "317",
-    "320",
-    "321",
-    "322",
-    "323",
-    "324",
-    "325",
-    "326",
-    "327",
-    "328",
-    "331",
-    "335",
-    "336",
-}
-
 def load_yaml():
     # Find YAML file and return floor 3 config
     yaml_path = FLOORS_DIR / YAML_NAME
@@ -90,7 +65,6 @@ def find_room(detections: list[dict], rooms: set[str]) -> str | None:
 
         # Does this number have lettered rooms?
         candidates = [room for room in rooms if room.startswith(room_num) and len(room) == 4]
-        print(candidates)
 
         # Search other OCR extractions for a valid A-D suffix
         if candidates:
