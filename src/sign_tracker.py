@@ -41,7 +41,7 @@ class SignTracker:
         Returns:
             signs (list[dict]): The tracked signs & their attributes
         '''
-        results = self.model.track(frame, conf=self.conf, persist=True, tracker="bytetrack.yaml")
+        results = self.model.track(frame, conf=self.conf, persist=True, tracker="bytetrack.yaml", verbose=False)
         signs = []
         curr_ids = set()
 
