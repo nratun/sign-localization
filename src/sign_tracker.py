@@ -1,7 +1,8 @@
-import cv2
+from dataclasses import dataclass
+
 import numpy as np
 from ultralytics import YOLO
-from dataclasses import dataclass
+
 
 @dataclass
 class SignInfo:

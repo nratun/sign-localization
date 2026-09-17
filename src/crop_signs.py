@@ -16,8 +16,8 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-from ultralytics import YOLO
 from paddleocr import PaddleOCR
+from ultralytics import YOLO
 
 from ocr import ocr_text
 

@@ -12,7 +12,9 @@ Example:
 """
 import argparse
 from pathlib import Path
+
 import cv2
+
 
 def extract_frames(video: Path, out_dir: Path, interval: float):
     '''

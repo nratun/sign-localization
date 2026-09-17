@@ -8,6 +8,7 @@ This file is different from crop_signs.py in that it is intended to work in tand
 import cv2
 import numpy as np
 
+
 def simple_crop(image: np.ndarray, points: np.ndarray) -> np.ndarray | None:
     '''
     Takes in an image and 4 (x,y) points representing a bounding box.

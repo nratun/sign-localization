@@ -8,7 +8,9 @@ Usage:
     python model.py validate
 """
 import sys
+
 from ultralytics import YOLO
+
 
 def train():
     '''

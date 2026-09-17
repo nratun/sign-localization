@@ -1,12 +1,20 @@
 import argparse
-import cv2
 from pathlib import Path
+
+import cv2
 from paddleocr import PaddleOCR
-from sign_tracker import SignTracker
+
+from floor_map import FloorMap, build_graph, get_landmarks
 from live_crop_signs import simple_crop
 from ocr import ocr_text
-from room_lookup import load_yaml, build_rooms, find_room
-from floor_map import FloorMap, build_graph, get_landmarks
+from room_lookup import build_rooms, find_room, load_yaml
+from sign_tracker import SignTracker
+
+# TODO LIST
+# 1. Rooms w/ letters still aren't detected very well, either change room lookup or crop fallback?
+# 1a. Or implement logic to prevent location jumping (Ex. Sign = 312E, extracts 312, 312 is 3 vertices away, choose 312E)
+# 2. Remove parts of yaml that have location INSIDE room
+# 3. Potentially tweak ocr retry rate?
 
 # Number frames to wait before retrying OCR after unsuccessful attempt
 OCR_RETRY = 5
@@ -153,7 +161,6 @@ def main():
 
     stream_video(video)
     print("\nFinished")
-    return
 
 if __name__ == "__main__":
     main()

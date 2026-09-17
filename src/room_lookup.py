@@ -1,6 +1,7 @@
-import yaml
 import re
 from pathlib import Path
+
+import yaml
 
 # Focus only on floor 3 right now, since that's where I have the most video content
 FLOORS_DIR = Path("dataset/floors")

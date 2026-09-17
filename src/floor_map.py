@@ -1,8 +1,9 @@
-import yaml
+from dataclasses import dataclass
+from pathlib import Path
+
 import cv2
 import numpy as np
-from pathlib import Path
-from dataclasses import dataclass
+import yaml
 
 # Focus only on floor 3 right now, since that's where I have the most video content
 FLOORS_DIR = Path("dataset/floors")

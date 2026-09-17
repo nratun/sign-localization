@@ -1,3 +1,6 @@
+import queue
+import threading
+
 import cv2
 from paddleocr import PaddleOCR
 
