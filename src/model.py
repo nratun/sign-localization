@@ -67,9 +67,15 @@ def validate():
     print("Map50:\t", metrics.box.map50)       # map50
     print("Map75:\t", metrics.box.map75)       # map75
 
+def export():
+    model = YOLO("runs/train/r/weights/best.pt")
+    model.export(format="onnx")
+
 if __name__ == "__main__":
     command = sys.argv[1].lower()
     if command == "train":
         train()
     elif command == "validate":
         validate()
+    elif command == "export":
+        export()

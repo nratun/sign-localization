@@ -1,4 +1,5 @@
 import argparse
+import time
 from pathlib import Path
 
 import cv2
@@ -18,6 +19,7 @@ from sign_tracker import SignTracker
 
 # Number frames to wait before retrying OCR after unsuccessful attempt
 OCR_RETRY = 5
+PLAYBACK_SPEED = 0.75
 
 '''
 Takes in an MP4 video and displays it as a continuous video stream.
@@ -51,7 +53,6 @@ def stream_video(video: Path):
     known_signs = set() # Signs that already have valid rooms found
     ocr_jobs = set() # Signs that have OCR job being processed    
     ocr_counters = {} # Number frames since last ocr for each sign
-
     # ----------------------------INtake video----------------------------
     vid = cv2.VideoCapture(str(video))
 
@@ -68,9 +69,16 @@ def stream_video(video: Path):
         vid.release()
         return
 
-    delay = int(1000 / fps) # In ms, may not keep up with video feed if processing takes too long
+    frame_interval = 1.0 / fps
+    frame_number = 0
+
     ocr_worker = OCRWorker(rooms)
 
+    # Models take awhile to load, which affects sign detections in the beginning, add buffer
+    print("[INFO] Loading models...")
+    time.sleep(4)
+    print("[INFO] Starting video")
+    start_time = time.perf_counter()
     # ----------------------------Process video----------------------------
     while True:
         success, frame = vid.read()
@@ -152,7 +160,20 @@ def stream_video(video: Path):
 
         floor_map.display(curr_vtx, curr_room)
 
-        if cv2.waitKey(delay) & 0xFF == ord("q"):
+        frame_number += 1
+
+        # Playback close to og video
+        target_time = start_time + frame_number * frame_interval
+        remaining = target_time - time.perf_counter()
+
+        if remaining > 0:
+            key = cv2.waitKey(
+                max(1, int(remaining * 1000))
+            ) & 0xFF
+        else:
+            key = cv2.waitKey(1) & 0xFF
+
+        if key == ord("q"):
             break
 
     vid.release()
