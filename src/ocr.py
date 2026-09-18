@@ -51,15 +51,16 @@ def ocr_text(ocr, image) -> list[dict]:
 def _ocr_worker_loop(jobs, results, stop_event, rooms):
     print("[OCR] Worker started")
 
-    # PaddleOCR belongs entirely to this process.
     ocr = PaddleOCR(
         lang="en",
         device="cpu",
         enable_mkldnn=False, # Need this otherwise issues with YOLO?
-        # enable_hpi=True,
         use_doc_orientation_classify=False,
         use_doc_unwarping=False,
         use_textline_orientation=False,
+
+        text_detection_model_name="PP-OCRv5_mobile_det",
+        text_recognition_model_name="en_PP-OCRv5_mobile_rec",
     )
 
     while not stop_event.is_set():

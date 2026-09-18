@@ -41,7 +41,7 @@ def find_room(detections: list[dict], rooms: set[str]) -> str | None:
     for detection in detections:
         text = detection["text"].upper().strip()
         normalize = re.sub(r"[\s\-]", "", text)
-        match = re.search(r"\d{3}[A-D]", normalize)
+        match = re.search(r"\d{3}[A-E]", normalize)
 
         if not match:
             continue
@@ -70,7 +70,7 @@ def find_room(detections: list[dict], rooms: set[str]) -> str | None:
                 suffix = candidate["text"].upper().strip()
 
                 # Candidate doesn't match suffix
-                if not re.fullmatch(r"[A-D]", suffix):
+                if not re.fullmatch(r"[A-E]", suffix):
                     continue
 
                 candidate = room_num + suffix
@@ -81,48 +81,3 @@ def find_room(detections: list[dict], rooms: set[str]) -> str | None:
         if room_num in rooms:
             return room_num
     return None
-
-def main():
-
-    floor_data = load_yaml()
-    rooms = build_rooms(floor_data)
-
-    tests = [
-        [{"text": "335", "conf": 0.99, "points": None}],
-        [{"text": "999", "conf": 0.99, "points": None}],
-        [{"text": "316A", "conf": 0.99, "points": None}],
-        [{"text": "316 A", "conf": 0.99, "points": None}],
-        [{"text": "316-A", "conf": 0.99, "points": None}],
-        [
-            {"text": "316", "conf": 0.95, "points": None},
-            {"text": "B", "conf": 0.91, "points": None}
-        ],
-        [
-            {"text": "B", "conf": 0.95, "points": None},
-            {"text": "316", "conf": 0.91, "points": None}
-        ],
-        [
-            {'text': 'Storage', 'conf': 0.9181936979293823, 'points': None},
-            {'text': 'A', 'conf': 0.9999241828918457, 'points': None},
-            {'text': '11', 'conf': 0.7748457193374634, 'points': None},
-            {'text': '397', 'conf': 0.9355620741844177, 'points': None}
-        ],
-        [
-            {'text': 'wi', 'conf': 0.28283214569091797, 'points': None},
-            {'text': 'Storage', 'conf': 0.9033820033073425, 'points': None},
-            {'text': 'A', 'conf': 0.9996433258056641, 'points': None},
-            {'text': '397', 'conf': 0.9893670678138733, 'points': None}
-        ]
-    ]
-
-    for test in tests:
-        room = find_room(test, rooms)
-
-        if room:
-            print(f"OCR: {test} -> room {room}")
-        else:
-            print(f"OCR: {test} -> No valid room")
-
-
-if __name__ == "__main__":
-    main()
