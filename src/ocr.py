@@ -48,25 +48,35 @@ def ocr_text(ocr, image) -> list[dict]:
         })
     return detections
 
-def _ocr_worker_loop(jobs, results, stop_event, rooms):
-    print("[OCR] Worker started")
+def _ocr_worker_loop(jobs, results, stop_event, ready_event, startup_errors, rooms):
+    print("[OCR] Loading Worker...")
 
-    ocr = PaddleOCR(
-        lang="en",
-        device="cpu",
-        enable_mkldnn=False, # Need this otherwise issues with YOLO?
-        use_doc_orientation_classify=False,
-        use_doc_unwarping=False,
-        use_textline_orientation=False,
+    try:
+        ocr = PaddleOCR(
+            lang="en",
+            device="cpu",
+            enable_mkldnn=False, # Need this otherwise issues with YOLO?
+            use_doc_orientation_classify=False,
+            use_doc_unwarping=False,
+            use_textline_orientation=False,
 
-        text_detection_model_name="PP-OCRv5_mobile_det",
-        text_recognition_model_name="en_PP-OCRv5_mobile_rec",
-    )
+            text_detection_model_name="PP-OCRv5_mobile_det", # Around same performance as v6_small
+            text_recognition_model_name="PP-OCRv6_small_rec",
+        )
+
+    except Exception as error:
+        startup_errors.put(str(error))
+        ready_event.set()
+        print(f"[OCR ERROR] Failed to initialize PaddleOCR: {error}")
+        return
+
+    # PaddleOCR fully initialized
+    ready_event.set()
+    print("[OCR] Worker ready")
 
     while not stop_event.is_set():
         try:
             sign_id, crop = jobs.get(timeout=0.1)
-
         except queue.Empty:
             continue
 
@@ -93,27 +103,47 @@ def _ocr_worker_loop(jobs, results, stop_event, rooms):
     print("[OCR] Worker stopped")
 
 class OCRWorker:
-    def __init__(self, rooms: set[str], max_queue_size: int = 1):
+    def __init__(
+        self,
+        rooms: set[str],
+        max_queue_size: int = 1
+    ):
+        ctx = mp.get_context("spawn")
         self.rooms = rooms
-        self.jobs = mp.Queue(maxsize=max_queue_size)
-        self.results = mp.Queue()
-        self.stop_event = mp.Event()
+        self.jobs = ctx.Queue(maxsize=max_queue_size)
+        self.results = ctx.Queue()
+        self.stop_event = ctx.Event()
+        self.ready_event = ctx.Event()
+        self.startup_errors = ctx.Queue()
 
         # Start OCR in separate process
-        ctx = mp.get_context("spawn")
-
         self.process = ctx.Process(
             target=_ocr_worker_loop,
             args=(
                 self.jobs,
                 self.results,
                 self.stop_event,
+                self.ready_event,
+                self.startup_errors,
                 self.rooms
             ),
             daemon=True
         )
 
         self.process.start()
+
+    def wait_till_ready(self, timeout: float | None = None) -> bool:
+        ready = self.ready_event.wait(timeout)
+
+        if not ready:
+            return False
+
+        if not self.startup_errors.empty():
+            error = self.startup_errors.get_nowait()
+            print(f"[OCR ERROR] {error}")
+            return False
+
+        return self.process.is_alive()
 
     def submit(self, sign_id: int, crop) -> bool:
         if crop is None or crop.size == 0:
@@ -123,7 +153,7 @@ class OCRWorker:
             # Copy crop because og frame continues changing
             self.jobs.put_nowait((sign_id, crop.copy()))
             return True
-
+        
         except queue.Full:
             return False
 
@@ -140,9 +170,7 @@ class OCRWorker:
 
     def stop(self):
         self.stop_event.set()
-
-        # Give worker chance to finish
-        self.process.join(timeout=2.0)
+        self.process.join(timeout=2.0) # Give worker chance to finish
 
         # stop if PaddleOCR still running
         if self.process.is_alive():

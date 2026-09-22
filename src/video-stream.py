@@ -4,22 +4,15 @@ from pathlib import Path
 
 import cv2
 
-from floor_map import FloorMap, build_graph, get_landmarks
 from live_crop_signs import simple_crop
+from map import Map, build_graph, get_rooms
 from ocr import OCRWorker
 from room_lookup import build_rooms, load_yaml
 from sign_tracker import SignTracker
 
-# TODO LIST
-# 1. Rooms w/ letters still aren't detected very well, either change room lookup or crop fallback?
-# 1a. Or implement logic to prevent location jumping (Ex. Sign = 312E, extracts 312, 312 is 3 vertices away, choose 312E)
-# 2. Remove parts of yaml that have location INSIDE room
-# 3. Potentially tweak ocr retry rate?
-# 4. Add it so that instead of teleporting, robot dot moves along edges in path
-
 # Number frames to wait before retrying OCR after unsuccessful attempt
 OCR_RETRY = 5
-PLAYBACK_SPEED = 0.75
+PLAYBACK_SPEED = 1
 
 '''
 Takes in an MP4 video and displays it as a continuous video stream.
@@ -43,12 +36,9 @@ def stream_video(video: Path):
     floor_data = load_yaml()
     rooms = build_rooms(floor_data)
     vertices, edges = build_graph(floor_data)
-    landmarks = get_landmarks(vertices)
+    landmarks = get_rooms(vertices)
 
-    floor_map = FloorMap(floor_data, vertices, edges, landmarks)
-
-    curr_vtx = None
-    curr_room = None
+    floor_map = Map(floor_data, vertices, edges, landmarks)
 
     known_signs = set() # Signs that already have valid rooms found
     ocr_jobs = set() # Signs that have OCR job being processed    
@@ -75,8 +65,17 @@ def stream_video(video: Path):
     ocr_worker = OCRWorker(rooms)
 
     # Models take awhile to load, which affects sign detections in the beginning, add buffer
-    print("[INFO] Loading models...")
-    time.sleep(4)
+    print("[INFO] Loading OCR model...")
+    ocr_worker = OCRWorker(rooms)
+
+    # Wait for worker to  finish initialization
+    if not ocr_worker.wait_until_ready(timeout=30):
+        print("[ERROR] OCR worker failed to initialize")
+        ocr_worker.stop()
+        vid.release()
+        return
+
+    print("[INFO] OCR ready")
     print("[INFO] Starting video")
     start_time = time.perf_counter()
     # ----------------------------Process video----------------------------
@@ -103,11 +102,11 @@ def stream_video(video: Path):
             # Valid room
             if room is not None:
                 print(f"FOUND ID {id} | ROOM: {room} | TIME: {result['time']:.3f}s")
+                moved = floor_map.move_to_room(room)
 
-                curr_room = room
-                curr_vtx = floor_map.room_to_vertex(room)
-                known_signs.add(id)
-                ocr_counters.pop(id, None) # Don't OCR sign anymore
+                if moved:
+                    known_signs.add(id)
+                    ocr_counters.pop(id, None)
 
         # ----------------------------Track & Crop----------------------------
         # Pass frame into sign detector/tracker
@@ -158,8 +157,7 @@ def stream_video(video: Path):
         display = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5) # Video feed was too large for screen, reduce 50%
         cv2.imshow("Video Feed", display)
 
-        floor_map.display(curr_vtx, curr_room)
-
+        floor_map.display()
         frame_number += 1
 
         # Playback close to og video
@@ -167,9 +165,7 @@ def stream_video(video: Path):
         remaining = target_time - time.perf_counter()
 
         if remaining > 0:
-            key = cv2.waitKey(
-                max(1, int(remaining * 1000))
-            ) & 0xFF
+            key = cv2.waitKey(max(1, int(remaining * 1000))) & 0xFF
         else:
             key = cv2.waitKey(1) & 0xFF
 
