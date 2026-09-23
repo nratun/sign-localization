@@ -47,7 +47,7 @@ def extract_frames(video: Path, out_dir: Path, interval: float):
 
     # How much frames we want to skip by 
     # (Ex. 30 fps, every 0.5s = Skip every 15 frames)
-    frame_interval = max(1, int(round(fps * interval)))
+    frame_interval = max(1, round(fps * interval))
     out_dir.mkdir(parents=True, exist_ok=True)
     curr_frame = 0
     curr_saved = 0
@@ -63,14 +63,11 @@ def extract_frames(video: Path, out_dir: Path, interval: float):
             filename = out_dir / f"{video.stem}_{curr_saved:03d}.jpg"
 
             # Save frame as photo (95 quality vs 100 to save some space)
-            cv2.imwrite(
-                str(filename),
-                frame,
-                [cv2.IMWRITE_JPEG_QUALITY, 95],
-            )
+            cv2.imwrite(str(filename), frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
 
             curr_saved += 1
         curr_frame += 1
+        
     vid.release()
     print(f"[DONE] {video.name}: {curr_saved} frames")
     return

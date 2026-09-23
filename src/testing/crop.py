@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-crop_signs.py: Crops photos to contain only building signs detected by a YOLO model with OCR output
+crop.py: Crops photos to contain only building signs detected by a YOLO model with OCR output
 
 For this project, this file was used alongisde OCR text extraction for testing/debugging purposes.
 All output photos are saved to a specified directory.
@@ -95,7 +95,7 @@ def perspective_crop(image: np.ndarray, points: np.ndarray) -> np.ndarray | None
     warped = cv2.warpPerspective(image, matrix, (width, height))    # Apply transformation matrix
     return warped
 
-def create_ocr_output(crop: np.ndarray, text: str, conf: float) -> np.ndarray:
+def ocr_output(crop: np.ndarray, text: str, conf: float) -> np.ndarray:
     '''
     Takes in a cropped photo of a building sign and displays OCR information to its right.
     The extracted text and confidence level is displayed in black text on white background.
@@ -186,7 +186,6 @@ def detect_signs(model: YOLO, ocr: PaddleOCR, img_path: Path, out_dir: Path, con
     results = model(img, conf=conf)
     num_signs = 0
 
-    # Note: Don't need this for loop right now because only processing one photo at a time
     for result in results:
         if result.obb is None:
             continue
@@ -203,10 +202,17 @@ def detect_signs(model: YOLO, ocr: PaddleOCR, img_path: Path, out_dir: Path, con
 
             # ---------------------OCR Section----------------------------
             # Run OCR on cropped sign
-            text, ocr_confidence = ocr_text(ocr, crop)
+            detections = ocr_text(ocr, crop)
+
+            text = " ".join(detection["text"] for detection in detections)
+
+            if detections:
+                ocr_conf = sum(detection["conf"] for detection in detections) / len(detections)
+            else:
+                ocr_conf = 0.0
 
             # Combine cropped photo with extracted text & confidence
-            output = create_ocr_output(crop, text, ocr_confidence)
+            output = ocr_output(crop, text, ocr_conf)
             # ---------------------(END) OCR Section----------------------
 
             output_name = (f"{img_path.stem}_sign_{num_signs}.jpg")
@@ -215,10 +221,7 @@ def detect_signs(model: YOLO, ocr: PaddleOCR, img_path: Path, out_dir: Path, con
             # cv2.imwrite(str(output_path), crop) # Use if you don't want OCR output, just cropped photo
 
             num_signs += 1
-    print(
-        f"[DONE] {img_path.name}: "
-        f"{num_signs} signs cropped"
-    )
+    print(f"[DONE] {img_path.name}: {num_signs} signs cropped")
     return
 
 def main():
@@ -271,8 +274,6 @@ def main():
     print(f"Found {len(photos)} photo(s)\n")
 
     model = YOLO(args.model)
-
-    #---------------------OCR Section----------------------------
     ocr = PaddleOCR(
         lang="en",
         device="cpu",
@@ -283,7 +284,7 @@ def main():
     for photo in photos:
         # detect_signs(model, photo, photos_root, args.confidence) # Use if you don't want OCR output, just cropped photo
         detect_signs(model, ocr, photo, photos_root, args.confidence)
-    #---------------------(END) OCR Section----------------------
+
     print("\nFinished")
     return
 

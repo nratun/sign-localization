@@ -1,13 +1,25 @@
+#!/usr/bin/env python
+
+"""
+stream.py: FIX
+
+FIX FIX.
+
+Usage:
+    python stream.py <video_path>
+Example:
+    python stream.py demo/v1.mp4
+"""
 import argparse
 import time
 from pathlib import Path
 
 import cv2
 
-from live_crop_signs import simple_crop
-from map import Map, build_graph, get_rooms
+from floor_data import build_rooms, load_floor
+from live_crop import simple_crop
+from map import Map, build_graph
 from ocr import OCRWorker
-from room_lookup import build_rooms, load_yaml
 from sign_tracker import SignTracker
 
 # Number frames to wait before retrying OCR after unsuccessful attempt
@@ -33,12 +45,11 @@ def stream_video(video: Path):
         conf=0.95
     )
 
-    floor_data = load_yaml()
+    floor_data = load_floor()
     rooms = build_rooms(floor_data)
     vertices, edges = build_graph(floor_data)
-    landmarks = get_rooms(vertices)
 
-    floor_map = Map(floor_data, vertices, edges, landmarks)
+    floor_map = Map(floor_data, vertices, edges, rooms)
 
     known_signs = set() # Signs that already have valid rooms found
     ocr_jobs = set() # Signs that have OCR job being processed    
@@ -62,14 +73,12 @@ def stream_video(video: Path):
     frame_interval = 1.0 / fps
     frame_number = 0
 
-    ocr_worker = OCRWorker(rooms)
-
     # Models take awhile to load, which affects sign detections in the beginning, add buffer
     print("[INFO] Loading OCR model...")
     ocr_worker = OCRWorker(rooms)
 
     # Wait for worker to  finish initialization
-    if not ocr_worker.wait_until_ready(timeout=30):
+    if not ocr_worker.wait_till_ready(timeout=30):
         print("[ERROR] OCR worker failed to initialize")
         ocr_worker.stop()
         vid.release()
@@ -102,7 +111,7 @@ def stream_video(video: Path):
             # Valid room
             if room is not None:
                 print(f"FOUND ID {id} | ROOM: {room} | TIME: {result['time']:.3f}s")
-                moved = floor_map.move_to_room(room)
+                moved = floor_map.move(room)
 
                 if moved:
                     known_signs.add(id)

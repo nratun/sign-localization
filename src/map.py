@@ -1,16 +1,19 @@
+#!/usr/bin/env python
+
+"""
+map.py: FIX FIX.
+
+FIX FIX.
+"""
 import time
 from collections import deque
 from dataclasses import dataclass
-from pathlib import Path
 
 import cv2
 import numpy as np
-import yaml
 
-# Focus only on floor 3 right now, since that's where I have the most video content
-FLOORS_DIR = Path("dataset/floors")
-YAML_NAME = "floor-plan.yaml"
-FLOOR_NAME = "floor3"
+from floor_data import FLOORS_DIR
+
 MOVE_SPEED = 200.0
 
 @dataclass
@@ -18,19 +21,6 @@ class Vertex:
     x: float
     y: float
     label: str | None = None
-
-@dataclass
-class Room:
-    vertex_id: int
-
-def load_yaml():
-    # Find YAML file and return floor 3 config
-    yaml_path = FLOORS_DIR / YAML_NAME
-
-    with open(yaml_path, "r") as file:
-        data = yaml.safe_load(file)
-
-    return data["levels"][FLOOR_NAME]
 
 def build_graph(floor_data: dict) -> tuple[dict[int, Vertex], list[tuple[int, int]]]:
     vertices = {}
@@ -52,25 +42,13 @@ def build_graph(floor_data: dict) -> tuple[dict[int, Vertex], list[tuple[int, in
         edges.append((start, end))
     return vertices, edges
 
-
-def get_rooms(vertices: dict[int, Vertex]) -> dict[str, Room]:
-    rooms = {}
-
-    for vertex_id, vertex in vertices.items():
-        if not vertex.label:
-            continue
-
-        rooms[vertex.label] = Room(vertex_id=vertex_id)
-    return rooms
-
-
 class Map:
     def __init__(
         self,
         floor_data: dict,
         vertices: dict[int, Vertex],
         edges: list[tuple[int, int]],
-        rooms: dict[str, Room],
+        rooms: dict[str, int],
         move_speed: float = MOVE_SPEED
     ):
         self.vertices = vertices
@@ -140,10 +118,10 @@ class Map:
             )
 
         # Identify rooms
-        for label, room in self.rooms.items():
-            vertex = self.vertices[room.vertex_id]
+        for label, vtx_id in self.rooms.items():
+            vtx = self.vertices[vtx_id]
 
-            point = self._to_screen(vertex.x, vertex.y)
+            point = self._to_screen(vtx.x, vtx.y)
 
             cv2.putText(
                 background,
@@ -159,12 +137,7 @@ class Map:
         return background
 
     def room_to_vtx(self, room: str) -> int | None:
-        room = self.rooms.get(room.upper())
-
-        if room is None:
-            return None
-
-        return room.vertex_id
+        return self.rooms.get(room.upper())
 
     def find_path(self, start_vtx: int, target_vtx: int) -> list[int] | None:
         if start_vtx == target_vtx:
