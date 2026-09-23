@@ -86,14 +86,14 @@ def _ocr_worker_loop(jobs, results, stop_event, ready_event, startup_errors, roo
         print(f"[ERROR] Failed to initialize PaddleOCR: {error}")
         return
 
-    # PaddleOCR fully initialized
+    # PaddleOCR fully initialized, ready_event toggled
     ready_event.set()
     # ------------------------------Job Loop------------------------------
     # While stop hasn't been established
     while not stop_event.is_set():
         try:
             sign_id, crop = jobs.get(timeout=0.1) # Wait up to 0.1s for job
-        except queue.Empty: # Nothing in queue -> Go back up and check again
+        except queue.Empty: # Nothing in queue -> Loop and check again
             continue
 
         try:
@@ -159,7 +159,7 @@ class OCRWorker:
             daemon=True
         )
 
-        self.process.start()
+        self.process.start() # Actually starts the process
 
     def wait_till_ready(self, timeout: float | None = None) -> bool:
         '''
@@ -180,7 +180,7 @@ class OCRWorker:
         # Error with OCR startup
         if not self.startup_errors.empty():
             error = self.startup_errors.get_nowait()
-            print(f"[OCR ERROR] {error}")
+            print(f"[ERROR] OCR: {error}")
             return False
 
         return self.process.is_alive()

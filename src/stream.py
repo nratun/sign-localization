@@ -22,8 +22,7 @@ from map import Map, build_graph
 from ocr import OCRWorker
 from sign_tracker import SignTracker
 
-# Number frames to wait before retrying OCR after unsuccessful attempt
-OCR_RETRY = 5
+OCR_RETRY = 5 # Number frames to wait before retrying OCR
 # TODO fix map size
 
 def stream_video(video: Path):
@@ -35,24 +34,17 @@ def stream_video(video: Path):
 
     Params:
         video (Path): The path to the video that will be processed
-
-    Returns:
-        None
     '''
     # ----------------------------Initialization----------------------------
-    tracker = SignTracker(
-        model="runs/train/r/weights/best.pt",
-        conf=0.95
-    )
-
     floor_data = load_floor()
     rooms = build_rooms(floor_data)
     vertices, edges = build_graph(floor_data)
 
     floor_map = Map(floor_data, vertices, edges, rooms)
+    tracker = SignTracker(model="runs/train/r/weights/best.pt", conf=0.95)
 
     known_signs = set() # Signs that already have valid rooms found
-    ocr_jobs = set() # Signs that have OCR job being processed    
+    ocr_jobs = set() # Signs that have OCR job being processed
     ocr_counters = {} # Number frames since last ocr for each sign
     # -----------------------------Intake Video-----------------------------
     vid = cv2.VideoCapture(str(video))
@@ -77,6 +69,7 @@ def stream_video(video: Path):
     ocr_worker = OCRWorker(rooms)
 
     # Models take awhile to load, which affects sign detections in the beginning, add buffer
+    # Main process paused until ready_event == True (OCR loaded), or 30s pass (OCR experiences error)
     if not ocr_worker.wait_till_ready(timeout=30):
         print("[ERROR] OCR worker failed to initialize")
         ocr_worker.stop()
@@ -92,13 +85,14 @@ def stream_video(video: Path):
         # No more frames to process
         if not success:
             break
-        # ------------------------------OCR Asynch------------------------------
+        # ----------------------------Pull OCR Results----------------------------
+        # Go through obtained results
         for result in ocr_worker.poll():
             id = result["id"]
             ocr_jobs.discard(id) # Don't OCR the sign anymore
             room = result["room"]
 
-            # OCR failed
+            # OCR failed for the sign
             if result.get("error") is not None:
                 print(f"[ERROR] Sign ID {id}: " f"{result['error']}")
                 continue
@@ -113,7 +107,7 @@ def stream_video(video: Path):
                     known_signs.add(id)
                     ocr_counters.pop(id, None)
 
-        # -----------------------------Track & Crop-----------------------------
+        # ------------------------------Track & Crop------------------------------
         signs = tracker.track_signs(frame) # Pass frame into sign detector/tracker
 
         for sign in signs:
@@ -123,11 +117,11 @@ def stream_video(video: Path):
             if id in known_signs or id in ocr_jobs:
                 continue
             
-            # First time seeing sign = OCR immediately
+            # First time seeing sign -> OCR immediately
             if id not in ocr_counters:
                 ocr_counters[id] = 0
                 do_ocr = True
-            # Already seen sign before, check if needs OCR attempt again
+            # Already seen sign before -> Check if needs OCR attempt again
             else:
                 ocr_counters[id] += 1
                 do_ocr = ocr_counters[id] >= OCR_RETRY
@@ -144,8 +138,9 @@ def stream_video(video: Path):
             # Send crop to OCR worker
             submitted = ocr_worker.submit(id, crop)
 
+            # Queue had room, job was submitted/added to queue
             if submitted:
-                ocr_jobs.add(id) # Add to job queue
+                ocr_jobs.add(id) # Sign has pending OCR request
                 ocr_counters[id] = 0
 
         # Remove OCR state for signs YOLO isn't tracking
@@ -165,8 +160,10 @@ def stream_video(video: Path):
         target_time = start_time + frame_number * frame_interval
         remaining = target_time - time.perf_counter()
 
+        # Wait if the feed is ahead
         if remaining > 0:
             key = cv2.waitKey(max(1, int(remaining * 1000))) & 0xFF
+        # Feed behind, wait as little as possible
         else:
             key = cv2.waitKey(1) & 0xFF
 
