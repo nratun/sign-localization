@@ -174,7 +174,6 @@ class Map:
         vertex_id = self.room_to_vtx(room)
 
         if vertex_id is None:
-            print(f"[MAP] Room {room} not found in rooms")
             return False
 
         # First recognized room
@@ -183,8 +182,6 @@ class Map:
             self.curr_vtx = vertex_id
             self.curr_room = room
             self.curr_point = (vertex.x, vertex.y)
-
-            print(f"[MAP] Initial position: {room} -> vertex {vertex_id}")
             return True
 
         # Already at this room
@@ -195,13 +192,11 @@ class Map:
 
         # Don't start 2nd movement while current one still in progress
         if self.path:
-            print(f"[MAP] Already moving toward {self.target_room}; ignoring {room}")
             return False
 
         path = self.find_path(self.curr_vtx, vertex_id)
 
         if path is None:
-            print(f"[MAP] No path from vertex {self.curr_vtx} to vertex {vertex_id}")
             return False
 
         if len(path) < 2:
@@ -210,12 +205,6 @@ class Map:
         self.path = deque(path)
         self.target_room = room
         self.move_time = time.perf_counter()
-
-        print(
-            f"[MAP] Moving {self.curr_vtx} -> "
-            f"{room} via {path}"
-        )
-
         return True
 
     def _update_position(self):
@@ -251,8 +240,6 @@ class Map:
                 self.path.clear()
                 self.target_room = None
                 self.move_time = None
-
-                print(f"[MAP] Arrived at {self.curr_room}")
                 return
 
             self.move_time = time.perf_counter()

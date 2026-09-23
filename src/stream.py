@@ -24,22 +24,22 @@ from sign_tracker import SignTracker
 
 # Number frames to wait before retrying OCR after unsuccessful attempt
 OCR_RETRY = 5
-PLAYBACK_SPEED = 1
+# TODO fix map size
 
-'''
-Takes in an MP4 video and displays it as a continuous video stream.
-Each frame is passed to the sign tracker, where a YOLO model detect & track room signs.
-
-Tracked signs are later used to infer the location during the video and updated accordingly.
-
-Params:
-    video (Path): The path to the video that will be processed
-
-Returns:
-    None
-'''
 def stream_video(video: Path):
-    # -------------------------Initialize everything-------------------------
+    '''
+    Takes in an MP4 video and displays it as a continuous video stream. For each frame:
+    1. Frame is tracked for any possible building signs
+    2. Detected building signs are processed with OCR to extract room numbers
+    3. Room numbers extracted successfully are used to update the floor plan map with current position
+
+    Params:
+        video (Path): The path to the video that will be processed
+
+    Returns:
+        None
+    '''
+    # ----------------------------Initialization----------------------------
     tracker = SignTracker(
         model="runs/train/r/weights/best.pt",
         conf=0.95
@@ -54,7 +54,7 @@ def stream_video(video: Path):
     known_signs = set() # Signs that already have valid rooms found
     ocr_jobs = set() # Signs that have OCR job being processed    
     ocr_counters = {} # Number frames since last ocr for each sign
-    # ----------------------------INtake video----------------------------
+    # -----------------------------Intake Video-----------------------------
     vid = cv2.VideoCapture(str(video))
 
     # Can't open video
@@ -72,75 +72,67 @@ def stream_video(video: Path):
 
     frame_interval = 1.0 / fps
     frame_number = 0
-
-    # Models take awhile to load, which affects sign detections in the beginning, add buffer
+    # -------------------------------Load OCR-------------------------------
     print("[INFO] Loading OCR model...")
     ocr_worker = OCRWorker(rooms)
 
-    # Wait for worker to  finish initialization
+    # Models take awhile to load, which affects sign detections in the beginning, add buffer
     if not ocr_worker.wait_till_ready(timeout=30):
         print("[ERROR] OCR worker failed to initialize")
         ocr_worker.stop()
         vid.release()
         return
 
-    print("[INFO] OCR ready")
-    print("[INFO] Starting video")
+    print("[INFO] OCR ready, starting video")
     start_time = time.perf_counter()
-    # ----------------------------Process video----------------------------
+    # ------------------------------Video Loop------------------------------
     while True:
         success, frame = vid.read()
 
         # No more frames to process
         if not success:
             break
-        # ----------------------------OCR Asynch----------------------------
+        # ------------------------------OCR Asynch------------------------------
         for result in ocr_worker.poll():
             id = result["id"]
-            ocr_jobs.discard(id) # No more OCR job running for sign
-            detections = result["detections"]
+            ocr_jobs.discard(id) # Don't OCR the sign anymore
             room = result["room"]
-
-            print(f"Sign ID {id} | OCR: {detections}")
 
             # OCR failed
             if result.get("error") is not None:
-                print(f"[OCR ERROR] Sign ID {id}: " f"{result['error']}")
+                print(f"[ERROR] Sign ID {id}: " f"{result['error']}")
                 continue
 
             # Valid room
             if room is not None:
-                print(f"FOUND ID {id} | ROOM: {room} | TIME: {result['time']:.3f}s")
+                print(f"[FOUND] ID {id} | ROOM: {room} | TIME: {result['time']:.3f}s")
                 moved = floor_map.move(room)
 
+                # Position updated, don't OCR the sign anymore
                 if moved:
                     known_signs.add(id)
                     ocr_counters.pop(id, None)
 
-        # ----------------------------Track & Crop----------------------------
-        # Pass frame into sign detector/tracker
-        signs = tracker.track_signs(frame)
+        # -----------------------------Track & Crop-----------------------------
+        signs = tracker.track_signs(frame) # Pass frame into sign detector/tracker
 
         for sign in signs:
             id = sign["id"]
 
-            # Don't ocr already known signs
-            if id in known_signs:
-                continue
-
-            # Don't submit OCR while one being processed for the sign
-            if id in ocr_jobs:
+            # Don't OCR already known signs or signs that already have a job submitted
+            if id in known_signs or id in ocr_jobs:
                 continue
             
             # First time seeing sign = OCR immediately
             if id not in ocr_counters:
                 ocr_counters[id] = 0
                 do_ocr = True
-            # Already seen sign before, check if needs ocr attempt again
+            # Already seen sign before, check if needs OCR attempt again
             else:
                 ocr_counters[id] += 1
                 do_ocr = ocr_counters[id] >= OCR_RETRY
 
+            # No need to OCR this sign
             if not do_ocr:
                 continue
 
@@ -153,23 +145,23 @@ def stream_video(video: Path):
             submitted = ocr_worker.submit(id, crop)
 
             if submitted:
-                ocr_jobs.add(id)
+                ocr_jobs.add(id) # Add to job queue
                 ocr_counters[id] = 0
 
-        # Remove OCR state for signs yolo isn't tracking
+        # Remove OCR state for signs YOLO isn't tracking
         for id in list(ocr_counters):
             if tracker.get_sign_info(id) is None:
                 ocr_counters.pop(id, None)
                 ocr_jobs.discard(id)
 
         # ----------------------------Update Displays----------------------------
-        display = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5) # Video feed was too large for screen, reduce 50%
+        display = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5) # Video feed too large for screen, reduce 50%
         cv2.imshow("Video Feed", display)
 
         floor_map.display()
         frame_number += 1
 
-        # Playback close to og video
+        # Playback close to OG video
         target_time = start_time + frame_number * frame_interval
         remaining = target_time - time.perf_counter()
 

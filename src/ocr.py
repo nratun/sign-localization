@@ -38,11 +38,8 @@ def ocr_text(ocr, image) -> list[dict]:
     return detections
 
 def _ocr_worker_loop(jobs, results, stop_event, ready_event, startup_errors, rooms):
-    print("[OCR] Loading Worker...")
-
     try:
         ocr = PaddleOCR(
-            lang="en",
             device="cpu",
             enable_mkldnn=False, # Need this otherwise issues with YOLO?
             use_doc_orientation_classify=False,
@@ -56,12 +53,11 @@ def _ocr_worker_loop(jobs, results, stop_event, ready_event, startup_errors, roo
     except Exception as error:
         startup_errors.put(str(error))
         ready_event.set()
-        print(f"[OCR ERROR] Failed to initialize PaddleOCR: {error}")
+        print(f"[ERROR] Failed to initialize PaddleOCR: {error}")
         return
 
     # PaddleOCR fully initialized
     ready_event.set()
-    print("[OCR] Worker ready")
 
     while not stop_event.is_set():
         try:
