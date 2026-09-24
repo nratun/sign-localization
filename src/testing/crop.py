@@ -236,7 +236,7 @@ def main():
     parser.add_argument(
         "--model",
         type=Path,
-        default="runs/train/r/weights/best.pt",
+        default="models/sign-detector.pt",
         help="YOLO OBB model path"
     )
     parser.add_argument(

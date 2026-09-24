@@ -1,6 +1,6 @@
 # Python
 __pycache__/
-*.pyc
+*.pyc[cod]
 
 # Virtual
 .venv/
@@ -14,18 +14,24 @@ env/
 .vscode/
 
 # Dataset
-dataset/images/
-dataset/labels/
 dataset/frames/
-dataset/crops/
-dataset/floors/
-
-# Demo
-demo
+dataset/demo/
 
 # YOLO
-models/*.pt
+models/*
+!models/sign-detector.pt
 runs/
+*.cache
+
+yolo/images/train/*
+yolo/images/val/*
+yolo/labels/train/*
+yolo/labels/val/*
+
+!yolo/images/train/.gitkeep
+!yolo/images/val/.gitkeep
+!yolo/labels/train/.gitkeep
+!yolo/labels/val/.gitkeep
 
 # Additional
 logs/

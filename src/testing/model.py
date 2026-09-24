@@ -21,7 +21,7 @@ def train():
 
     # Train model with custom parameters
     model.train(
-        data="dataset/data.yaml",
+        data="yolo/data.yaml",
 
         # Configuration
         epochs=150,
@@ -59,7 +59,7 @@ def validate():
     Validates the trained YOLO model and prints its mAP metrics.
     '''
     # Load trained model
-    model = YOLO("runs/obb/runs/train/r/weights/best.pt")
+    model = YOLO("models/sign-detector.pt")
 
     # Validate the model
     metrics = model.val()
@@ -68,7 +68,7 @@ def validate():
     print("Map75:\t", metrics.box.map75)       # map75
 
 def export():
-    model = YOLO("runs/train/r/weights/best.pt")
+    model = YOLO("models/sign-detector.pt")
     model.export(format="onnx")
 
 if __name__ == "__main__":

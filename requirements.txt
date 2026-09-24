@@ -1,8 +1,8 @@
-ultralytics
-torch
-torchvision
-opencv-python
-numpy
-
-paddlepaddle
-paddleocr
+# Requires Python 3.12
+numpy==2.3.5
+opencv-python==5.0.0.93
+PyYAML==6.0.2
+ultralytics==8.4.137
+paddlepaddle==3.3.1
+paddleocr==3.7.0
+torch==2.13.0

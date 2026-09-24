@@ -19,7 +19,7 @@ class SignInfo:
 class SignTracker:
     def __init__(
         self,
-        model: str = "runs/train/r/weights/best.pt",
+        model: str = "models/sign-detector.pt",
         conf: float = 0.95,
         max_missed: int = 30
     ):
