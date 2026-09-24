@@ -188,29 +188,31 @@ class Map:
             return [start_vtx]
 
         queue = deque([start_vtx])
+        # Each vertex references what came before it (except the 1st)
         previous: dict[int, int | None] = {start_vtx: None}
 
-        while queue:
+        while queue: # While there's vertices left to explore
             current = queue.popleft()
 
+            # Look at all neighbors of current vertex
             for neighbor in self.adjacency[current]:
                 if neighbor in previous:
                     continue
 
                 previous[neighbor] = current
 
-                if neighbor == target_vtx:
+                if neighbor == target_vtx: # Target found, make path
                     path = []
                     vertex = target_vtx
 
                     while vertex is not None:
-                        path.append(vertex)
+                        path.append(vertex) # Go backwards (end to beginning)
                         vertex = previous[vertex]
 
-                    path.reverse()
+                    path.reverse() # Reverse so path is beginning to end
                     return path
 
-                queue.append(neighbor)
+                queue.append(neighbor) # Consider the neighbor in a later loop
 
         return None
 
@@ -221,13 +223,15 @@ class Map:
        If this is the first recognized room (beginning of the video), the robot is placed there immediately.
        If not, BFS finds the shortest path to the room.
 
+       Note: This function does NOT animate the movement, that is done by update_position
+
         Params:
             room (str): The room to be moved to
 
         Returns:
             bool: Whether the robot successfully moved or not
         '''        
-        vertex_id = self.rooms.get(room.upper())
+        vertex_id = self.rooms.get(room.upper()) # Vertex belonging to room
 
         if vertex_id is None:
             return False
@@ -240,7 +244,7 @@ class Map:
             self.curr_point = (vertex.x, vertex.y)
             return True
 
-        # Already at this room
+        # Already at this room & not traveling
         if vertex_id == self.curr_vtx and not self.path:
             self.curr_room = room
             self.curr_point = (self.vertices[vertex_id].x, self.vertices[vertex_id].y)
@@ -250,6 +254,7 @@ class Map:
         if self.path:
             return False
 
+        # Need to travel somewhere else
         path = self.find_path(self.curr_vtx, vertex_id)
 
         if path is None:
@@ -259,8 +264,8 @@ class Map:
         if len(path) < 2:
             return True
 
-        self.path = deque(path)
-        self.target_room = room
+        self.path = deque(path) # Route that needs to be taken
+        self.target_room = room # Room that needs to be reached
         self.move_time = time.perf_counter()
         return True
 
@@ -269,41 +274,50 @@ class Map:
         Updates the robot's position along the path based on elapsed time.
 
         The robot moves at constant speed between vertices.
-        '''  
+        '''
+        # No path or no move time started
         if len(self.path) < 2 or self.move_time is None:
             return
-
+        
+        # 1st edge in path: self.path[0] -> self.path[1]
+        # self.vertices[] -> Vertex(x, y)
         start_vtx = self.vertices[self.path[0]]
         target_vtx = self.vertices[self.path[1]]
+
         start_x, start_y = start_vtx.x, start_vtx.y
         target_x, target_y = target_vtx.x, target_vtx.y
 
+        # Distance between start & end vertices (by pixel)
         edge_dist = np.hypot(target_x - start_x, target_y - start_y)
 
-        if edge_dist <= 0:
-            progress = 1.0
-        else:
-            elapsed = time.perf_counter() - self.move_time
-            progress = min(elapsed * self.move_speed / edge_dist, 1.0)
+        # Time elapsed since beginning edge traversal
+        elapsed = time.perf_counter() - self.move_time
+        
+        # Percentage of completion (can't be more than 100% complete, use min 1.0 if more)
+        progress = min(elapsed * self.move_speed / edge_dist, 1.0) 
 
+        # Interpolation to get current position along edge
         x = start_x + (target_x - start_x) * progress
         y = start_y + (target_y - start_y) * progress
         self.curr_point = (x, y)
 
-        # Current edge complete
+        # Current edge traversal complete
         if progress >= 1.0:
-            self.curr_point = (target_x, target_y)
-            self.path.popleft()
+            self.curr_point = (target_x, target_y) # Place robot exactly on target vertex
+            self.path.popleft() # Pop completed edge's starting vertex
 
             # Entire path complete
             if len(self.path) < 2:
                 self.curr_vtx = self.path[0]
-                self.curr_room = self.target_room
+                self.curr_room = self.target_room # Reached target room
+
+                # Clear movement state
                 self.path.clear()
                 self.target_room = None
                 self.move_time = None
                 return
 
+            # Reset time for next edge
             self.move_time = time.perf_counter()
             return
 
@@ -311,7 +325,7 @@ class Map:
         '''
         Updates & displays the robot's current position on the floor map
         '''  
-        self._update_position()
+        self._update_position() # Called every frame to animate movement
         image = self.map.copy()
 
         if self.curr_point is not None:
