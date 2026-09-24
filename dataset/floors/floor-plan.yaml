@@ -22,7 +22,7 @@ levels:
       - [42, 43, {motion_axis: [1, start], motion_degrees: [3, 90], motion_direction: [2, -1], name: [1, "null"], plugin: [1, normal], right_left_ratio: [3, 1], type: [1, hinged]}]
       - [44, 45, {motion_axis: [1, start], motion_degrees: [3, 90], motion_direction: [2, 1], name: [1, "null"], plugin: [1, normal], right_left_ratio: [3, 1], type: [1, hinged]}]
     drawing:
-      filename: FinTech_floor_3-1.png
+      filename: floor-3.png
     elevation: 3
     fiducials:
       - [868.30799999999999, 682.20100000000002, 0]
@@ -151,7 +151,7 @@ levels:
       - [43, 44, {motion_axis: [1, start], motion_degrees: [3, 90], motion_direction: [2, 1], name: [1, "null"], plugin: [1, normal], right_left_ratio: [3, 1], type: [1, hinged]}]
       - [45, 46, {motion_axis: [1, start], motion_degrees: [3, 90], motion_direction: [2, -1], name: [1, "null"], plugin: [1, normal], right_left_ratio: [3, 1], type: [1, hinged]}]
     drawing:
-      filename: FinTech_floor_4-1.png
+      filename: floor-4.png
     elevation: 4
     fiducials:
       - [875.76400000000001, 686.21600000000001, 0]
@@ -264,7 +264,7 @@ levels:
       - [34, 35, {motion_axis: [1, start], motion_degrees: [3, 90], motion_direction: [2, -1], name: [1, "null"], plugin: [1, normal], right_left_ratio: [3, 1], type: [1, hinged]}]
       - [36, 37, {motion_axis: [1, end], motion_degrees: [3, 90], motion_direction: [2, -1], name: [1, "null"], plugin: [1, normal], right_left_ratio: [3, 1], type: [1, hinged]}]
     drawing:
-      filename: FinTech_floor_5-1.png
+      filename: floor-5.png
     elevation: 5
     fiducials:
       - [868.59799999999996, 681.07100000000003, 0]

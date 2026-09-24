@@ -42,7 +42,7 @@ def stream_video(video: Path):
     vertices, edges = build_graph(floor_data)
 
     floor_map = Map(floor_data, vertices, edges, rooms)
-    tracker = SignTracker(model="runs/train/r/weights/best.pt", conf=0.95)
+    tracker = SignTracker(model="models/sign-detector.pt", conf=0.95)
 
     known_signs = set() # Signs that already have valid rooms found
     ocr_jobs = set() # Signs that have OCR job being processed
