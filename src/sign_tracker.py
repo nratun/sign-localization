@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
 """
-sign_tracker.py: FIX
+sign_tracker.py: Handles all YOLO sign detection and tracking functionality.
 
-FIX FIX
+Tracked signs are given unique tracking IDs and kept until they have not been detected for a
+specific number of frames
 """
 from dataclasses import dataclass
 
@@ -14,7 +15,6 @@ from ultralytics import YOLO
 @dataclass
 class SignInfo:
     missed: int = 0
-    frames_seen: int = 0
 
 class SignTracker:
     def __init__(
@@ -28,8 +28,8 @@ class SignTracker:
 
         Params:
             model (str): Path to the trained YOLO OBB model
-            conf (float): The minimum confidence required for the building sign to be considered
-            max_missed (int): The number of frames a sign disappears before tracking is discarded
+            conf (float): Minimum confidence required for the building sign to be considered (default=0.95)
+            max_missed (int): Number of frames a sign disappears before tracking is discarded (default=30)
         '''
         self.model = YOLO(model)
         self.conf = conf
@@ -63,7 +63,7 @@ class SignTracker:
 
             # xyxyxyxy = OBB polygon format with 4-corner points:
             # [[x1, y1], [x2, y2], [x3, y3], [x4, y4]]
-            # need to ensure process is specifically on CPU before numpy
+            # Move tensors to CPU before converting to numpy
             boxes = result.obb.xyxyxyxy.cpu().numpy() # Sign corner points
             confs = result.obb.conf.cpu().numpy() # Confidence
             ids = track_ids.cpu().numpy().astype(int) # Assigned ID
@@ -75,18 +75,17 @@ class SignTracker:
 
                 curr_ids.add(id)
 
+                # New sign
                 if id not in self.signs:
                     self.signs[id] = SignInfo()
 
                 sign = self.signs[id]
                 sign.missed = 0
-                sign.frames_seen += 1
 
                 signs.append({
                     "id": id,
                     "points": points,
                     "conf": conf,
-                    "frames_seen": sign.frames_seen
                 })
 
         # Signs not detected in current frame
@@ -99,6 +98,14 @@ class SignTracker:
 
         return signs
 
-    # Basically a getter function for other files like live_crop to get the necessary info
     def get_sign_info(self, id: int) -> SignInfo | None:
+        '''
+        Takes in an ID representing a specific sign and returns its details.
+
+        Params:
+            id (int): The unique ID number of an existing sign
+
+        Returns:
+            SignInfo | None: The info of the sign that correlates to the given ID (None if it doesn't exist)
+        '''
         return self.signs.get(id)

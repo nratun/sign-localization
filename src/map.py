@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 
 """
-map.py: FIX FIX.
+map.py: This file handles floor plan graph creation/visualization and robot movement.
 
-FIX FIX.
+The map uses a predefined graph from the floor-plan YAML file.
+Recognized room signs are used to determine the location to move to, and the robot is moved
+along the graph to reach it.
 """
 import time
 from collections import deque
@@ -14,7 +16,7 @@ import numpy as np
 
 from floor_data import FLOORS_DIR
 
-MOVE_SPEED = 200.0
+MOVE_SPEED = 200.0 # Movement speed of robot on map
 
 @dataclass
 class Vertex:
@@ -23,6 +25,16 @@ class Vertex:
     label: str | None = None
 
 def build_graph(floor_data: dict) -> tuple[dict[int, Vertex], list[tuple[int, int]]]:
+    '''
+    Takes in a dictionary containing data about a particular building floor.
+    Returns all the vertices and edges of the rooms on that floor
+
+    Params:
+        floor_data (dict): The information of a particular building floor
+
+    Returns:
+        vertices (dict[int, Vertex]]), edges (list[tuple]): The vertices & edges of the graph
+    '''
     vertices = {}
 
     for vertex_id, vertex in enumerate(floor_data["vertices"]):
@@ -51,15 +63,24 @@ class Map:
         rooms: dict[str, int],
         move_speed: float = MOVE_SPEED
     ):
+        '''
+        Initialize the Map, graph, and robot location
+
+        Params:
+            floor_data (dict): The information of a particular building floor
+            vertices (dict[int, Vertex]]): The vertices of the graph representing locations
+            edges (list[tuple[int, int]]): The edges of the graph connecting the vertices
+            rooms (dict[str, int]): The numbered/named rooms on a particular floor & their vertex IDs
+            move speed (float): The speed of the robot as it navigates on the map
+        '''
         self.vertices = vertices
         self.edges = edges
         self.rooms = rooms
         self.move_speed = move_speed
 
-        # TODO change name from drawing & background to something else?
+        # Load floor map as background
         drawing_name = floor_data["drawing"]["filename"]
         drawing_path = FLOORS_DIR / drawing_name
-
         self.background = cv2.imread(str(drawing_path))
 
         if self.background is None:
@@ -71,22 +92,38 @@ class Map:
         # Build adjacency list for graph traversal
         self.adjacency: dict[int, list[int]] = {vertex_id: [] for vertex_id in self.vertices}
 
+        # Add each edge in both directions
         for start_id, end_id in self.edges:
             self.adjacency[start_id].append(end_id)
             self.adjacency[end_id].append(start_id)
         # ---------------------- Robot Location ----------------------
-        self.curr_vtx: int | None = None # Last confirmed room
+        self.curr_vtx: int | None = None # Last confirmed vertex
         self.curr_room: str | None = None # Last confirmed room
         self.curr_point: tuple[float, float] | None = None # Current robot position
         self.path: deque[int] = deque() # Remaining path
         self.target_room: str | None = None # Final room
-        self.move_time: float | None = None
+        self.move_time: float | None = None # Time edge movement started
 
     def _to_screen(self, x: float, y: float) -> tuple[int, int]:
-        # YAML coords to screen coords
+        '''
+        Converts YAML (x, y) float coordinates to integer screen coordinates.
+
+        Params:
+            x (float): The x coordinate
+            y (float): The y coordinate
+
+        Returns:
+            tuple[int, int]: The (x, y) coordinates converted to integers
+        '''
         return int(x), int(y)
 
     def _render_bg(self) -> np.ndarray:
+        '''
+        Draws the graph, vertices, and edges onto the floor map
+
+        Returns:
+            background: The floor plan image containing the graph and notated room numbers
+        '''
         background = self.background.copy()
 
         # Draw graph edges
@@ -102,7 +139,7 @@ class Map:
                 start_point,
                 end_point,
                 (180, 180, 180),
-                2
+                3
             )
 
         # Draw all vertices
@@ -112,7 +149,7 @@ class Map:
             cv2.circle(
                 background,
                 point,
-                4,
+                5,
                 (0, 0, 0),
                 -1
             )
@@ -128,7 +165,7 @@ class Map:
                 label,
                 (point[0] + 6, point[1] - 6),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                0.45,
+                0.65,
                 (0, 0, 0),
                 1,
                 cv2.LINE_AA
@@ -136,10 +173,17 @@ class Map:
 
         return background
 
-    def room_to_vtx(self, room: str) -> int | None:
-        return self.rooms.get(room.upper())
-
     def find_path(self, start_vtx: int, target_vtx: int) -> list[int] | None:
+        '''
+        Finds a path between two vertices using breadth first search (BFS)
+
+        Params:
+            start_vtx (int): The vertex to start from
+            target_vtx (int): The vertex to reach
+
+        Returns:
+            path (list[int] | None): The vertices passed in order from start to target (None if no path)
+        '''
         if start_vtx == target_vtx:
             return [start_vtx]
 
@@ -171,7 +215,19 @@ class Map:
         return None
 
     def move(self, room: str) -> bool:
-        vertex_id = self.room_to_vtx(room)
+        '''
+       Updates the robot's location to a recognized room
+
+       If this is the first recognized room (beginning of the video), the robot is placed there immediately.
+       If not, BFS finds the shortest path to the room.
+
+        Params:
+            room (str): The room to be moved to
+
+        Returns:
+            bool: Whether the robot successfully moved or not
+        '''        
+        vertex_id = self.rooms.get(room.upper())
 
         if vertex_id is None:
             return False
@@ -199,6 +255,7 @@ class Map:
         if path is None:
             return False
 
+        # No movement needed
         if len(path) < 2:
             return True
 
@@ -208,6 +265,11 @@ class Map:
         return True
 
     def _update_position(self):
+        '''
+        Updates the robot's position along the path based on elapsed time.
+
+        The robot moves at constant speed between vertices.
+        '''  
         if len(self.path) < 2 or self.move_time is None:
             return
 
@@ -246,6 +308,9 @@ class Map:
             return
 
     def display(self):
+        '''
+        Updates & displays the robot's current position on the floor map
+        '''  
         self._update_position()
         image = self.map.copy()
 
@@ -270,8 +335,8 @@ class Map:
                     display_room,
                     (point[0] + 15, point[1] + 5),
                     cv2.FONT_HERSHEY_SIMPLEX,
-                    0.7,
-                    (0, 0, 0),
+                    0.9,
+                    (0, 0, 255),
                     2,
                     cv2.LINE_AA
                 )

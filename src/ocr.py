@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 
 """
-ocr.py: FIX FIX.
+ocr.py: Handles all OCR logic using PaddleOCR.
 
-FIX FIX.
+Multiprocessing is used to prevent delays in the video feed while running OCR.
+In the project, issues occur when attempting to use YOLO and Paddle together on GPU.
+For this reason, the CPU is leveraged (the GPU is used only when dealing with the two separately).
 """
 import multiprocessing as mp
 import queue
@@ -14,8 +16,6 @@ from paddleocr import PaddleOCR
 
 from room_lookup import find_room
 
-# Issues arise when using PaddleOCR in the same environment as YOLO
-# Use different environments for the two or use cpu rather than gpu
 
 def ocr_text(ocr: PaddleOCR, image: np.ndarray) -> list[dict]:
     '''
@@ -123,7 +123,7 @@ class OCRWorker:
     def __init__(
         self,
         rooms: dict[str, int],
-        max_queue_size: int = 1 # Only one waiting OCR job at most
+        max_queue_size: int = 1 # Only one queued OCR job at a time
     ):
         '''
         Initialize the OCR worker process with specified maximum queue size.
@@ -163,7 +163,7 @@ class OCRWorker:
 
     def wait_till_ready(self, timeout: float | None = None) -> bool:
         '''
-        Prepares OCR, if timeout is passed, returns False
+        Waits for the OCR worker to finish initializing
 
         Params:
             timeout (float | None): Maximum number of seconds to wait (Forever if None)
@@ -177,9 +177,13 @@ class OCRWorker:
         if not ready:
             return False
 
-        # Error with OCR startup
-        if not self.startup_errors.empty():
+        try:
             error = self.startup_errors.get_nowait()
+        except queue.Empty:
+            error = None
+            
+        # Error with OCR startup
+        if error is not None:
             print(f"[ERROR] OCR: {error}")
             return False
 
