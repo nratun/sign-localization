@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 
 """
-stream.py: FIX
+stream.py: This file is responsible for video playback and connecting the entire sign mapping system together.
 
-FIX FIX.
+The system is designed to simulate a live camera feed from an autonomous vehicle; ffor demonstration purposes,
+it takes a video recording instead. The vehicle uses detected building signs to estimate its location on a floor
+plan, acting as a lightweight system to complement more computationally intensive localization & mapping methods.
 
 Usage:
     python stream.py <video_path>
@@ -23,7 +25,6 @@ from ocr import OCRWorker
 from sign_tracker import SignTracker
 
 OCR_RETRY = 5 # Number frames to wait before retrying OCR
-# TODO fix map size
 
 def stream_video(video: Path):
     '''
@@ -68,8 +69,8 @@ def stream_video(video: Path):
     print("[INFO] Loading OCR model...")
     ocr_worker = OCRWorker(rooms)
 
-    # Models take awhile to load, which affects sign detections in the beginning, add buffer
-    # Main process paused until ready_event == True (OCR loaded), or 30s pass (OCR experiences error)
+    # Wait for OCR to finish initializing before starting video playback
+    # Main process paused until ready_event == True (OCR loaded), or 30s pass (failed)
     if not ocr_worker.wait_till_ready(timeout=30):
         print("[ERROR] OCR worker failed to initialize")
         ocr_worker.stop()
@@ -140,7 +141,7 @@ def stream_video(video: Path):
 
             # Queue had room, job was submitted/added to queue
             if submitted:
-                ocr_jobs.add(id) # Sign has pending OCR request
+                ocr_jobs.add(id) # Sign has OCR request in progress
                 ocr_counters[id] = 0
 
         # Remove OCR state for signs YOLO isn't tracking
@@ -162,7 +163,8 @@ def stream_video(video: Path):
 
         # Wait if the feed is ahead
         if remaining > 0:
-            key = cv2.waitKey(max(1, int(remaining * 1000))) & 0xFF
+            # int(x) = 0 if number is too small, use max to ensure value is 1 at minimum
+            key = cv2.waitKey(max(1, int(remaining * 1000))) & 0xFF # Keeps last 8 bits of key
         # Feed behind, wait as little as possible
         else:
             key = cv2.waitKey(1) & 0xFF

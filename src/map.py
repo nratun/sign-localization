@@ -276,5 +276,5 @@ class Map:
                     cv2.LINE_AA
                 )
 
-        display = cv2.resize(image, (0, 0), fx=0.7, fy=0.7)
+        display = cv2.resize(image, (0, 0), fx=0.6, fy=0.6) # Map too large for screen, resize
         cv2.imshow("Floor Map",display)
